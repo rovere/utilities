@@ -1,0 +1,328 @@
+#!/usr/bin/env python
+# Original Author:  Marco Rovere
+#         Created:  Tue Feb 9 10:06:02 CEST 2010
+# $Id: $
+
+import re
+import sys, os
+import FWCore.ParameterSet.Config as cms
+
+pwd = os.getenv('PWD') +'/'
+sys.path.append(pwd)
+#os.chdir(pwd)
+env = os.getenv('CMSSW_RELEASE_BASE')
+if env is not None:
+    print 'Working with release ', os.getenv('CMSSW_VERSION'), ' in area ', env
+    print os.getcwd()
+else:
+    print 'You must set a proper CMSSW environment first. Quitting.'
+    sys.exit(1)
+
+if len(sys.argv) < 2:
+    print 'Error.\nUsage py2tex python_config_file'
+    sys.exit(1)
+else:
+    toload = sys.argv[1] #'production'
+    toload = re.sub('\.py', '', toload)
+    towrite = toload + '.tex'
+#exec 'import ' + toload + ' as a'
+#os.chdir(pwd)
+print "Trying to load", toload
+try:
+    a = __import__(str(toload))
+except:
+    print 'Import Failed, quitting...'
+    sys.exit(1)
+
+# open latex output file
+out = open(towrite,'w')
+
+options = cms.Options()
+
+def preamble():
+    pre = """
+\documentclass[8pt,a4paper]{book}
+%\usepackage[utf8]{inputenc}
+%\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage{makeidx}
+\usepackage[plainpages=false, pdfpagelabels, debug,linktoc=page,bookmarks=true,bookmarksnumbered=false]{hyperref}
+\hypersetup{colorlinks,bookmarksopen,bookmarksnumbered, bookmarksdepth}
+\usepackage{bookmark}
+%\usepackage[plainpages=false, pdfpagelabels,bookmarks=true]{hyperref}
+
+\\title{Python Configuration Dump}
+\\author{Marco Rovere}
+\date{}
+
+\makeindex
+
+% Extend subsection numbering...
+% see http://stackoverflow.com/questions/1288166/technical-documentation-with-deeply-nested-enumerated-lists
+\setcounter{secnumdepth}{15}
+
+"""
+    out.write(pre)
+    sec = 'subsubsub'
+    psec = 'subsub'
+    out.write('%\\titleformat{command}[shape]{format}{label}{sep}{before}[after]\n')
+    out.write( '%\\titlespacing{command}{left}{beforesep}{aftersep}[right]\n')
+    out.write( '\makeatletter\n')
+    for i in range(4,25):
+        section  =  sec + 'section' 
+        psection = psec + 'section'
+        out.write( '\\newcounter{' + section + '}[' + psection + ']\n')
+        out.write( '\def\\' + section + 'mark#1{}\n')
+        out.write( '\def\\the' + section + ' {\\the' + psection + '.\\arabic{' + section + '}}\n')
+        out.write( '\def\\' + section + '{\@startsection{' + section + '}{' +str(i) + '}{\z@} {-3.25ex plus -1ex minus -.2ex}{1.5ex plus .2ex}{\\normalsize\sf}}\n')
+        out.write( '\def\l@' + section + '{\@dottedtocline{' +str(i) + '}{0em}{' + str(i) + '.7em}}\n')
+        sec  += 'sub'
+        psec += 'sub'
+
+    pre = """
+
+\def\l@section{\@dottedtocline{1}{0em}{2.7em}}
+\def\l@subsection{\@dottedtocline{1}{0em}{2.7em}}
+\def\l@subsubsection{\@dottedtocline{1}{0em}{3.7em}}
+
+\setcounter{tocdepth}{15}
+
+\makeatletter
+"""
+    out.write(pre)
+    sec = 'subsubsub'
+    for i in range(5,16):
+        section  =  sec + 'section'
+        out.write( '\providecommand*{\\toclevel@' + section + '}{' +str(i) + '}\n')
+        sec  += 'sub'
+
+    pre = """
+\makeatother
+
+
+\\begin{document}
+
+\maketitle
+
+%\setcounter{tocdepth}{3}
+\\tableofcontents
+
+"""
+    out.write(pre)
+
+def endDocument():
+
+    out.write('\printindex\n\n')
+    out.write('\end{document}\n')
+
+def dumpProducerOrFilter(toEval, sec, sq):
+    atype = str(type(eval(toEval)))
+    atype = re.sub('[<\'>"]', '', atype)
+    tmp = re.split('\.', atype)
+    title = tmp.pop()
+    shortTitle = re.sub('ED([a-zA-Z]).*', '\\1', title)
+    out.write( sec + '[' + shortTitle + ' ' + sq +']{'+  title + ' ' + sq + '}\n')
+    out.write( '\index{' + sq + '}\n')
+    out.write( '\index{' + title + '!' + sq + '}\n')
+    toEval += '.dumpPython()'
+    gg = eval(toEval)
+    gr = re.search(title + '\s*\(\s*"(.*)"', gg)
+    if gr:
+        out.write( '\href{http://cmslxr.fnal.gov/lxr/ident?i=' + gr.group(1) + '}{' + gr.group(1) + '}\n')
+    out.write( '\\begin{verbatim}\n')
+    cutAtColumn = 78
+    for line in gg.split('\n'):
+        blocks = len(line)/cutAtColumn + 1
+        for i in range(0,blocks):
+            out.write('%s' % line[i*cutAtColumn:(i+1)*cutAtColumn])
+            if blocks > 1 and not (i == blocks):
+                out.write('\\ \n')
+            else:
+                out.write('\n')
+#    out.write( gg)
+    out.write( '\end{verbatim}\n')
+    
+
+
+def dumpSequence(seq, sectionDepth):
+#    out.write( seq, eval(seq), type(eval(seq)))
+    aseq = eval(seq).dumpConfig('')
+    aseq = re.sub('cms.SequencePlaceholder\("(.*?)"\)', '\\1', aseq)
+    aseq = re.sub('[\(\)]', '', aseq)
+    m = re.search('{(.*)}', aseq)
+    if m:
+#        out.write( m.group(1))
+        sqs = re.split('[,*+\&]',m.group(1))
+        print 'dumpSequence', sqs
+        for sq in sqs:
+            toEval = 'a.process.'+sq
+#            print sq, 'is of type', type(eval(toEval))
+            sq = re.sub('_', '\_', sq)
+            sec = '\\'
+            for i in range(0,sectionDepth):
+                sec += 'sub'
+            sec += 'section'
+            try:
+                if type(eval(toEval)) == cms.Sequence:
+                    out.write( sec + '[S '+ sq + ']{'+ 'Sequence '  + sq + '}\n')
+                    out.write( '\index{' + sq + '}\n')
+                    out.write( '\index{Sequence!' + sq + '}\n')
+                    sectionDepth += 1
+                    dumpSequence(toEval, sectionDepth)
+                    sectionDepth -= 1
+                else: # it is an EDProducer or an EDFilter (or even Looper??)
+                    dumpProducerOrFilter(toEval, sec, sq)
+            except:
+                pass
+
+
+
+# Main starts here.
+
+# Check if the supplied configuration file has a process defined in
+# it. In case there is no process defined (e.g. when the file only
+# contains paths and/or sequences), create a small fake configuraion
+# file, with a DUMMY process and load the file under investigation on
+# top of it.
+
+try:
+    print a.process.process
+except:
+    print 'No process defined in the supplied configuration file: creating a DUMMY one'
+    cmsswBase = os.getenv('CMSSW_BASE')
+    tmpFile = open('dummy.py','w')
+    tmpFile.write("import FWCore.ParameterSet.Config as cms\n")
+    tmpFile.write("process = cms.Process('FAKE')\n\n")
+    pythonLibToLoad = (pwd + sys.argv[1]).replace(cmsswBase,'').replace('/src/','').replace('/', '.').replace('.python','').replace('.py','')
+    tmpFile.write("process.load('" + pythonLibToLoad + "')")
+    tmpFile.close()
+    a = __import__('dummy')
+    os.unlink('dummy.py')
+    os.unlink('dummy.pyc')
+
+preamble()
+out.write( '\chapter{Paths}\n')
+for k in a.process.paths.keys():
+    apath =  a.process.paths[k].dumpConfig(options)
+    apath = re.sub('cms.SequencePlaceholder\("(.*?)"\)', '\\1', apath)
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    m = re.search('{(.*)}', apath)
+    if m:
+#        print m.group(1)
+        sqs = re.split('&|,',m.group(1))
+        for sq in sqs:
+            toEval = 'a.process.'+sq
+#            print toEval, eval(toEval), type(eval(toEval))
+            sq = re.sub('_', '\_', sq)
+            if type(eval(toEval)) == cms.Sequence:
+                out.write( '\subsection{Sequence ' + sq + '}\n')
+                out.write( '\index{' + sq + '}\n')
+                out.write( '\index{Sequence!' + sq + '}\n')
+                dumpSequence(toEval, 2)
+            else :
+                dumpProducerOrFilter(toEval, '\subsection', sq)
+
+out.write( '\chapter{End Paths}\n')
+for k in a.process.endpaths.keys():
+    apath =  a.process.endpaths[k].dumpConfig(options)
+    apath = re.sub('cms.SequencePlaceholder\("(.*?)"\)', '\\1', apath)
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    m = re.search('{(.*)}', apath)
+    if m:
+#        print m.group(1)
+        sqs = re.split('&|,',m.group(1))
+        for sq in sqs:
+            toEval = 'a.process.'+sq
+#            print toEval, eval(toEval), type(eval(toEval))
+            sq = re.sub('_', '\_', sq)
+            if type(eval(toEval)) == cms.Sequence:
+                out.write( '\subsection{Sequence ' + sq + '}\n')
+                out.write( '\index{' + sq + '}\n')
+                out.write( '\index{Sequence!' + sq + '}\n')
+                dumpSequence(toEval, 2)
+            else :
+                dumpProducerOrFilter(toEval, '\subsection', sq)
+
+if 1:
+    out.write( '\chapter{Sequences}\n')
+    for k in a.process.sequences.keys():
+        apath =  a.process.sequences[k].dumpConfig(options)
+        #    apath = re.sub('cms.SequencePlaceholder\("(.*?)"\)', '\\1', apath)
+        apath = re.sub('[\(\)]', '', apath)
+        kk = re.sub('_', '\_', k)
+        out.write( '\section{' + kk + '}\n')
+        m = re.search('{(.*)}', apath)
+        if m:
+            sqs = re.split('&|,',m.group(1))
+            print 'Sequences Chapter', sqs
+            for sq in sqs:
+                toEval = 'a.process.'+sq
+                #            print toEval, eval(toEval), type(eval(toEval))
+                sq = re.sub('_', '\_', sq)
+                try:
+                    if type(eval(toEval)) == cms.Sequence:
+                        out.write( '\subsection{Sequence ' + sq + '}\n')
+                        out.write( '\index{' + sq + '}\n')
+                        out.write( '\index{Sequence!' + sq + '}\n')
+                        dumpSequence(toEval, 2)
+                    else :
+                        dumpProducerOrFilter(toEval, '\subsection', sq)
+                except:
+                    pass
+
+out.write( '\chapter{ES\_Sources}\n')
+for k in a.process.es_sources.keys():
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    out.write( '\index{' + kk + '}\n')
+    out.write( '\index{ESSources!' + kk + '}\n')
+    gg = a.process.es_sources[k].dumpPython()
+    gr = re.search('ESSource\s*\(\s*"(.*)"', gg)
+    if gr:
+        out.write( '\href{http://cmslxr.fnal.gov/lxr/ident?i=' + gr.group(1) + '}{' + gr.group(1) + '}\n')
+    out.write( '\\begin{verbatim}\n')
+    out.write( gg)
+    out.write( '\end{verbatim}\n')
+
+out.write( '\chapter{ES\_Producers}\n')
+for k in a.process.es_producers.keys():
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    out.write( '\index{' + kk + '}\n')
+    out.write( '\index{ESProducers!' + kk + '}\n')
+    gg = a.process.es_producers[k].dumpPython()
+    gr = re.search('ESProducer\s*\(\s*"(.*)"', gg)
+    if gr:
+        out.write( '\href{http://cmslxr.fnal.gov/lxr/ident?i=' + gr.group(1) + '}{' + gr.group(1) + '}\n')
+    out.write( '\\begin{verbatim}\n')
+    out.write( gg)
+    out.write( '\end{verbatim}\n')
+
+out.write( '\chapter{ES\_Prefers}\n')
+for k in a.process.es_prefers.keys():
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    out.write( '\index{' + kk + '}\n')
+    out.write( '\index{ESPrefers!' + kk + '}\n')
+    out.write( '\\begin{verbatim}\n')
+    gg = a.process.es_prefers[k].dumpPython()
+    out.write( gg)
+    out.write( '\end{verbatim}\n')
+
+
+out.write( '\chapter{Output Modules}\n')
+for k in a.process.outputModules.keys():
+    kk = re.sub('_', '\_', k)
+    out.write( '\section{' + kk + '}\n')
+    out.write( '\index{' + kk + '}\n')
+    out.write( '\index{OutputModule!' + kk + '}\n')
+    out.write( '\\begin{verbatim}\n')
+    gg = a.process.outputModules[k].dumpPython()
+    out.write( gg)
+    out.write( '\end{verbatim}\n')
+
+
+
+endDocument()

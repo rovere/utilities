@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ "$1" == "" ]; then
+echo "Usage: $0 <intervalcheck> <program> <output>" 
+exit 1
+fi
+
+INTERVAL=$1
+PROGRAM=$2
+OUTPUT=$3
+
+rm -f $OUTPUT
+touch $OUTPUT
+
+for ((  ;  ;  ))
+do
+# ps -u malgeri -eo pid,ppid,rss,vsize,pcpu,pmem,cmd -ww | grep $PROGRAM | grep -v grep | grep -v myprofile >> $OUTPUT
+ps -u rovere -o pid,ppid,rss,vsize,pcpu,pmem,cmd -ww | grep $PROGRAM | grep -v grep | grep -v myprofile >> $OUTPUT
+sleep $INTERVAL
+echo checking....
+done

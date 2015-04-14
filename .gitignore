@@ -1,0 +1,5 @@
+*.pyc
+*.root
+*.log
+py2pdf
+sqlitestudio*
