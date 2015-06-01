@@ -4,6 +4,7 @@ import cjson
 import StringIO
 import pycurl
 import re
+from githubAPI import github_api_token
 
 def head():
   head = """<!DOCTYPE html>
@@ -57,6 +58,7 @@ def getReleasesNotes():
   c.setopt(pycurl.URL, current_link)
   c.setopt(pycurl.WRITEFUNCTION, response.write)
   c.setopt(pycurl.HEADERFUNCTION, header.write)
+  c.setopt(pycurl.HTTPHEADER, ['Authorization: token %s' % github_api_token])
   counter = -1
   notes = []
 
@@ -65,6 +67,7 @@ def getReleasesNotes():
 
     releases = cjson.decode(response.getvalue())
     headers = header.getvalue()
+#    print releases, headers
     for line in headers.split('\n'):
        m = re.match(RX_LINKS, line)
        if m:
@@ -108,7 +111,7 @@ def getReleasesNotes():
       current = new_current
       out_rel.write(head())
     try:
-      out_rel.write('# %s\n%s' % (r[5], r[6]))
+      out_rel.write('# %s\n%s' % (r[5].encode('ascii', 'replace'), r[6].encode('ascii', 'replace')))
     except:
       pass
 
