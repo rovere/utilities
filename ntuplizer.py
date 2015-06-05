@@ -1,15 +1,11 @@
 #!/usr/bin/env python
 
-from DataFormats.FWLite import Handle, Events
-
-from ROOT import gROOT, gStyle, TCanvas, TF1, TFile, TTree, gRandom, TH1F, TH2F
-import ROOT
 import os, sys
-from tree import TreeNumpy
-from autovars import *
-from ObjectsNtuple import *
 from eos_utils import *
 from das_utils import *
+from autovars import *
+from ObjectsNtuple import *
+import argparse
 
 # Do not forget trailing '/'.
 #EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacyJan22/150223_172317/0000/'
@@ -20,6 +16,7 @@ def filterByRun(eventsRef, runNumber):
   return eventsRef.eventAuxiliary().run() == runNumber 
 
 def bookAutoNtuple(name, title):
+  from tree import TreeNumpy
   t = TreeNumpy(name, title)
   event_vars.makeBranches(t, False)
   track_vars.makeBranchesVector(t, False)
@@ -31,6 +28,7 @@ def trackNtuplizer(eventsRef,
                    t,
                    container_kind="std::vector<reco::Track>",
                    collection_label="generalTracks"):
+  from DataFormats.FWLite import Handle, Events
   tracksRef = Handle(container_kind)
   muonsRef = Handle("std::vector<reco::Muon>")
   vertexRef = Handle("std::vector<reco::Vertex>")
@@ -62,16 +60,18 @@ def trackNtuplizer(eventsRef,
     t.reset()
   sys.stdout.write('\n')
 
-def main():
-  f = TFile("trackTuplaNewMaterial.root", "RECREATE")
+def main(args):
+  from ROOT import gROOT, gStyle, TCanvas, TF1, TFile, TTree, gRandom, TH1F, TH2F
+  import ROOT
+  from DataFormats.FWLite import Handle, Events
+  from tree import TreeNumpy
+  f = TFile(args.output, "RECREATE")
   t = bookAutoNtuple("Tracks", "TrackNtuple")
   filename = ''
-  if len(sys.argv) > 1:
-    filename = sys.argv[1]
-  if filename != '':
-    eventsRef = Events("%s" % filename)
+  if args.input and os.path.exists(args.input):
+    eventsRef = Events("%s" % args.input)
     trackNtuplizer(eventsRef, t)
-  else:
+  elif args.eosdir:
     for filename in getFileListFromEOS(EOS_REPO):
       print "Dumping content from file %s" % filename
       eventsRef = Events("root://eoscms.cern.ch//%s" % filename)
@@ -80,4 +80,20 @@ def main():
   f.Close()
   
 if __name__ == '__main__':
-  main()
+  parser = argparse.ArgumentParser(description='Quick Ntuplizer for tracks.',
+                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument('-i', '--input',
+                      help='Input file to be used to extract information to produce the ntuple. Usually it must contain the RECO datatier. This option has the precedence on the -e/--eosdir one if both are specified.',
+                      type=str,
+                      required=False)
+  parser.add_argument('-e', '--eosdir',
+                      help='Directory on EOS to scan to look for input files. Usually it must contain RECO datatier.',
+                      type=str,
+                      required=False)
+  parser.add_argument('-o', '--output',
+                      help='Output file to be used to save the ntuple.',
+                      default='trackNtuple.root',
+                      type=str,
+                      required=True)
+  args = parser.parse_args()
+  main(args)
