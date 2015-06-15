@@ -90,7 +90,23 @@ vertexNTObject = NTupleObjectType("vertex", variables = [
         NTupleVariable("nTracks", lambda x : x.nTracks(), float)
         ])
 
+displacedVertexNTObject = NTupleObjectType("displaced_vertex", variables = [
+        NTupleVariable("x", lambda x : x.x(), float),
+        NTupleVariable("y", lambda x : x.y(), float),
+        NTupleVariable("z", lambda x : x.z(), float),
+        NTupleVariable("r", lambda x : sqrt(x.x()**2+x.y()**2), float),
+        NTupleVariable("err_x", lambda x : x.xError(), float),
+        NTupleVariable("err_y", lambda x : x.yError(), float),
+        NTupleVariable("err_z", lambda x : x.zError(), float),
+        NTupleVariable("valid", lambda x : x.isValid(), int),
+        NTupleVariable("ndof", lambda x : x.ndof(), float),
+        NTupleVariable("normalizedChi2", lambda x : x.normalizedChi2(), float),
+        NTupleVariable("vertexType", lambda x : x.vertexType(), float),
+        NTupleVariable("nTracks", lambda x : x.nTracks(), float)
+        ])
+
 event_vars = NTupleObject("event", eventNTObject)
 track_vars = NTupleCollection("track", trackNTObject, 5000)
 globalMuon_vars = NTupleCollection("muon", muonNTObject, 5000)
 vertex_vars = NTupleCollection("vertex", vertexNTObject, 100)
+displaced_vertex_vars = NTupleCollection("displaced_vertex", displacedVertexNTObject, 100)

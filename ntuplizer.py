@@ -15,13 +15,18 @@ EOS_REPO = '/store/relval/CMSSW_7_4_0_pre8/RelValSingleMuPt10_UP15/GEN-SIM-RECO/
 def filterByRun(eventsRef, runNumber):
   return eventsRef.eventAuxiliary().run() == runNumber 
 
-def bookAutoNtuple(name, title):
+def bookAutoNtuple(name, title, args):
   from tree import TreeNumpy
   t = TreeNumpy(name, title)
   event_vars.makeBranches(t, False)
-  track_vars.makeBranchesVector(t, False)
-  globalMuon_vars.makeBranchesVector(t, False)
-  vertex_vars.makeBranchesVector(t, False)
+  if args.tracks:
+    track_vars.makeBranchesVector(t, False)
+  if args.muons:
+    globalMuon_vars.makeBranchesVector(t, False)
+  if args.vertices:
+    vertex_vars.makeBranchesVector(t, False)
+  if args.displacedV:
+    displaced_vertex_vars.makeBranchesVector(t, False)
   return t
 
 def trackNtuplizer(eventsRef,
@@ -33,6 +38,8 @@ def trackNtuplizer(eventsRef,
   muonsRef = Handle("std::vector<reco::Muon>")
   vertexRef = Handle("std::vector<reco::Vertex>")
   vertexLabel = "offlinePrimaryVertices"
+  displaced_vertices_Ref = Handle("vector<reco::PFDisplacedVertex>")
+  displaced_vertices_label = "particleFlowDisplacedVertex"
   label = collection_label
 #  sip = ROOT.SignedImpactParameter()
   print "Analyzing Tracks: %s" % collection_label
@@ -49,13 +56,19 @@ def trackNtuplizer(eventsRef,
     a = eventsRef.getByLabel(label, tracksRef)
     a = eventsRef.getByLabel("muons", muonsRef)
     a = eventsRef.getByLabel(vertexLabel, vertexRef)
+    a = eventsRef.getByLabel(displaced_vertices_label, displaced_vertices_Ref)
     PVCollection = map(lambda x: vertexRef.product()[0], tracksRef.product())
     PVCollectionMuons = map(lambda x: vertexRef.product()[0], muonsRef.product())
     event_vars.fillBranches(t, eventsRef.eventAuxiliary(), False)
-    track_vars.fillBranchesVector(t, tracksRef.product(), False)
-    muon_args = map(lambda x: (x.innerTrack() if x.isTrackerMuon() else x.bestTrack() , x), muonsRef.product())
-    globalMuon_vars.fillBranchesVector(t, muon_args, False)
-    vertex_vars.fillBranchesVector(t, vertexRef.product(), False)
+    if args.tracks:
+      track_vars.fillBranchesVector(t, tracksRef.product(), False)
+    if args.muons:
+      muon_args = map(lambda x: (x.innerTrack() if x.isTrackerMuon() else x.bestTrack() , x), muonsRef.product())
+      globalMuon_vars.fillBranchesVector(t, muon_args, False)
+    if args.vertices:
+      vertex_vars.fillBranchesVector(t, vertexRef.product(), False)
+    if args.displacedV:
+      displaced_vertex_vars.fillBranchesVector(t, displaced_vertices_Ref.product(), False)
     t.tree.Fill()
     t.reset()
   sys.stdout.write('\n')
@@ -66,14 +79,19 @@ def main(args):
   from DataFormats.FWLite import Handle, Events
   from tree import TreeNumpy
   f = TFile(args.output, "RECREATE")
-  t = bookAutoNtuple("Tracks", "TrackNtuple")
+  t = bookAutoNtuple("Tracks", "TrackNtuple", args)
   filename = ''
   if args.input and os.path.exists(args.input):
     eventsRef = Events("%s" % args.input)
     trackNtuplizer(eventsRef, t)
   elif args.eosdir:
-    for filename in getFileListFromEOS(EOS_REPO):
-      print "Dumping content from file %s" % filename
+    total_files = len(getFileListFromEOS(args.eosdir))
+    counter = 1
+    for filename in getFileListFromEOS(args.eosdir):
+      print "Dumping content from file %s [%d/%d]" % (filename, counter, total_files)
+      counter += 1
+      if counter >= 35:
+        break
       eventsRef = Events("root://eoscms.cern.ch//%s" % filename)
       trackNtuplizer(eventsRef, t)
   f.Write()
@@ -89,6 +107,22 @@ if __name__ == '__main__':
   parser.add_argument('-e', '--eosdir',
                       help='Directory on EOS to scan to look for input files. Usually it must contain RECO datatier.',
                       type=str,
+                      required=False)
+  parser.add_argument('-t', '--tracks',
+                      help='Create tree for tracks.',
+                      action='store_true',
+                      required=False)
+  parser.add_argument('-m', '--muons',
+                      help='Create tree for muons.',
+                      action='store_true',
+                      required=False)
+  parser.add_argument('-v', '--vertices',
+                      help='Create tree for vertices.',
+                      action='store_true',
+                      required=False)
+  parser.add_argument('-d', '--displacedV',
+                      help='Create tree for displaced vertices (from PF).',
+                      action='store_true',
                       required=False)
   parser.add_argument('-o', '--output',
                       help='Output file to be used to save the ntuple.',
