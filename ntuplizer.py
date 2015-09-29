@@ -14,8 +14,9 @@ from das_utils import *
 from autovars import *
 from ObjectsNtuple import *
 import argparse
-from threading import Thread, Lock, currentThread
+from threading import Thread, Lock, currentThread, activeCount
 import re
+from time import sleep
 
 # Do not forget trailing '/'.
 #EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacyJan22/150223_172317/0000/'
@@ -154,7 +155,7 @@ def printTriggers(eventsRef):
 class ProcessOneEOSDirectory(Thread):
   def __init__(self, eos_path, args):
     Thread.__init__(self)
-    self.eos_path_ = eos_path
+    self.eos_path_ = eos_path if eos_path[-1] == '/' else eos_path+'/' 
     self.args_ = args
 
   def run(self):
@@ -167,14 +168,36 @@ class ProcessOneEOSDirectory(Thread):
     t = bookAutoNtuple("Tracks", "TrackNtuple", args)
     total_files = len(getFileListFromEOS(self.eos_path_))
     for filename in getFileListFromEOS(self.eos_path_):
+      print "root://eoscms/%s" % filename
       logme("   [%3d/%3d]    | " % (counter, total_files), thread_id)
       counter += 1
       # if counter >= 35:
       #   break
-      eventsRef = Events("root://eoscms.cern.ch//%s" % filename)
+      eventsRef = Events("root://eoscms/%s" % filename)
       if self.args_.printTriggers:
         printTriggers(eventsRef)
       trackNtuplizer(eventsRef, t, thread_id=thread_id)
+    f.Write()
+    f.Close()
+
+class ProcessOneEOSFile(Thread):
+  def __init__(self, eos_file, args):
+    Thread.__init__(self)
+    self.eos_file_ = eos_file
+    self.args_ = args
+
+  def run(self):
+    from DataFormats.FWLite import Events
+    from ROOT import TFile
+    from hashlib import sha256
+    thread_id = int(currentThread().getName().replace('Thread-', '')) - 1
+    f = TFile(args.output.replace(".root", "_%s.root" % sha256(self.eos_file_).hexdigest()[0:9]), "RECREATE")
+    t = bookAutoNtuple("Tracks", "TrackNtuple", args)
+    print "root://eoscms/%s" % self.eos_file_
+    eventsRef = Events("root://eoscms/%s" % self.eos_file_)
+    if self.args_.printTriggers:
+      printTriggers(eventsRef)
+    trackNtuplizer(eventsRef, t, thread_id=thread_id)
     f.Write()
     f.Close()
 
@@ -196,11 +219,20 @@ def main(args):
     f.Close()
   elif args.eosdir:
     local_threads = []
-    for current_eos_dir in args.eosdir.split(','):
-      local_threads.append(ProcessOneEOSDirectory(current_eos_dir, args))
-      local_threads[-1].start()
-    for t in local_threads:
-      t.join()
+    if len(args.eosdir.split(',')) == 1 and args.threads:
+      for current_eos_file in getFileListFromEOS(args.eosdir):
+        local_threads.append(ProcessOneEOSFile(current_eos_file, args))
+        local_threads[-1].start()
+        while activeCount() -1 >= args.threads:
+          sleep(30)
+      for t in local_threads:
+        t.join()
+    else:
+      for current_eos_dir in args.eosdir.split(','):
+        local_threads.append(ProcessOneEOSDirectory(current_eos_dir, args))
+        local_threads[-1].start()
+      for t in local_threads:
+        t.join()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Quick Ntuplizer for tracks.',
@@ -237,6 +269,11 @@ if __name__ == '__main__':
                       help='Only process events that satisfy the OR of the list of HLT paths passed to this option, comma-separated. RegExp are accepted.',
                       type=str,
                       required=False)
+  parser.add_argument('-j', '--threads',
+                      help='Creates a thread for each file in the specified EOS directory, up to the specified number of threads.',
+                      type=int,
+                      required=False,
+                      default=1)
   parser.add_argument('-o', '--output',
                       help='Output file to be used to save the ntuple.',
                       default='trackNtuple.root',
