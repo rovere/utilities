@@ -61,7 +61,7 @@ def main(options, args) :
         if current.pid>0:
             cmd = 'ps -p %s -o pid,rss,vsize,time,cmd --no-headers' % current.pid
             output = commands.getoutput(cmd)
-            m = re.match('\s+(\d+)\s+(\d+)\s+(\d+)\s+((\d+:){2}\d+)', output)
+            m = re.match('\s*(\d+)\s+(\d+)\s+(\d+)\s+((\d+:){2}\d+)', output)
             if m:
                 fout.write("%s\t%s\t%s\t%s\t" % (m.group(1),\
                                                  m.group(2),\
