@@ -29,9 +29,21 @@ def main(args):
     tracks_h = Handle("std::vector<reco::Track>")
     pv_h = Handle("std::vector<reco::Vertex>")
     hit_type = {0:'ok', 1:'missing', 2:'inactive', 3:'bad'}
-    hit_category = {0:'track_hits', 1:'missing_inner_hits', 2:'missing_outer_hits'}
-    det = {1:'PXB', 2:'PXF', 3:'TIB', 4:'TID', 5:'TOB', 6:'TEC'}
-    subdet = {'PXB': {1:'Layer1', 2:'Layer2', 3:'Layer3'}, 'PXF':{1:'Disk1', 2:'Disk2'}, 'TIB':{1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4'}, 'TID':{1:'wheel1', 2:'wheel2', 3:'wheel3'}, 'TOB':{1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4', 5:'Layer5', 6:'Layer6'}, 'TEC':{1:'wheel1', 2:'wheel2', 3:'wheel3', 4:'wheel4', 5:'wheel5', 6:'wheel6', 7:'wheel7', 8:'wheel8', 9:'wheel9'}}
+    hit_category = {0:'track_hits',
+                    1:'missing_inner_hits',
+                    2:'missing_outer_hits'}
+    det = {1:'PXB',
+           2:'PXF',
+           3:'TIB',
+           4:'TID',
+           5:'TOB',
+           6:'TEC'}
+    subdet = {'PXB': { 1:'Layer1', 2:'Layer2', 3:'Layer3'},
+              'PXF': { 1:'Disk1',  2:'Disk2'},
+              'TIB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4'},
+              'TID': { 1:'wheel1', 2:'wheel2', 3:'wheel3'},
+              'TOB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4', 5:'Layer5', 6:'Layer6'},
+              'TEC': { 1:'wheel1', 2:'wheel2', 3:'wheel3', 4:'wheel4', 5:'wheel5', 6:'wheel6', 7:'wheel7', 8:'wheel8', 9:'wheel9'}}
 
     histograms = {}
     histograms_barrel = {}
