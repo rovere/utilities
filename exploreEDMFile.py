@@ -23,6 +23,7 @@ qualities = OrderedDict([
 EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacyJan22/150223_172317/0000/'
 # Grab it after some lookups throu type -a eoscms/eos
 EOS_COMMAND = '/afs/cern.ch/project/eos/installation/0.3.84-aquamarine/bin/eos.select'
+HEADER = "(   Idx            'ori'         eta          phi           pt  NumValidHits  NumValidPixelHits ndof         chi2   Algo-4   HP?  key_idx)"
 
 def printTrackInformation(eventsRef,
                           container_kind = "std::vector<reco::Track>",
@@ -36,6 +37,7 @@ def printTrackInformation(eventsRef,
   tracksRef = Handle(container_kind)
   label = collection_label
   print "Analyzing Tracks: %s of quality %s" % (collection_label, quality)
+  print HEADER
   for e in range(eventsRef.size()):
     a = eventsRef.to(e)
     a = eventsRef.getByLabel(label, tracksRef)
@@ -110,7 +112,8 @@ def printTrackInformation(eventsRef,
           
     tr.sort(key=lambda tr: tr[sort_index])
     for t in tr:
-      print t
+      print "(%16.8f   %s %12.8f %12.8f %12.8f %13d %18d %4d %12.8f %7d %5d %6d)" % t
+    print HEADER
 
 
 def plotDistributionOfTracks(eventsRef,
