@@ -10,6 +10,8 @@ def getFileListFromEOS(eos_repo):
   proper prefix of each file.
   """
   import commands
+  # Always append a trailing slash to the eos repository, in case it is missing
+  eos_repo = eos_repo if eos_repo[-1] == '/' else eos_repo + '/'
   input_files = commands.getoutput('%s ls %s' % (EOS_COMMAND, eos_repo))
   input_files = input_files.split('\n')
   input_files = map(lambda x: '%s%s' %(eos_repo, x), input_files)
