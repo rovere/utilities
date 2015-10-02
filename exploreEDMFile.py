@@ -24,6 +24,7 @@ EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacy
 # Grab it after some lookups throu type -a eoscms/eos
 EOS_COMMAND = '/afs/cern.ch/project/eos/installation/0.3.84-aquamarine/bin/eos.select'
 HEADER = "(   Idx            'ori'         eta          phi           pt  NumValidHits  NumValidPixelHits ndof         chi2   Algo-4   HP?  key_idx)"
+HEADER_VTX = "(  Chi2     ndof     normChi2     fake?   Valid?   NTrks      x            y            z          xE          yE           zE         index)"
 
 def printTrackInformation(eventsRef,
                           container_kind = "std::vector<reco::Track>",
@@ -113,6 +114,44 @@ def printTrackInformation(eventsRef,
     for t in tr:
       print "(%16.8f   %s %12.8f %12.8f %12.8f %13d %18d %4d %12.8f %7d %5d %6d)" % t
     print HEADER
+
+def printVertexInformation(eventsRef,
+                          container_kind = "std::vector<reco::Vertex>",
+                          collection_label = "offlinePrimaryVertices"):
+  from DataFormats.FWLite import Handle, Events
+  verticesRef = Handle(container_kind)
+  label = collection_label
+  print "Analyzing Vertices: %s" % collection_label
+  for e in range(eventsRef.size()):
+    a = eventsRef.to(e)
+    a = eventsRef.getByLabel(label, verticesRef)
+    print "Run: %7d, LS: %5d, Event: %14d\n" % (eventsRef.eventAuxiliary().run(),
+                                                eventsRef.eventAuxiliary().luminosityBlock(),
+                                                eventsRef.eventAuxiliary().event())
+    print HEADER_VTX
+    if not verticesRef.isValid():
+      print "Missing collection ", label, container_kind
+      continue
+    tr = []
+    dump_index = 0
+    for vertex in verticesRef.product():
+      tr.append((vertex.chi2(),
+                 vertex.ndof(),
+                 vertex.normalizedChi2(),
+                 vertex.isFake(),
+                 vertex.isValid(),
+                 vertex.tracksSize(),
+                 vertex.x(),
+                 vertex.y(),
+                 vertex.z(),
+                 vertex.xError(),
+                 vertex.yError(),
+                 vertex.zError(),
+                 dump_index))
+      dump_index += 1
+    for t in tr:
+      print "(%9.6f %9.6f %9.6f %5d %8d %8d %12.8f %12.8f %12.8f %12.8f %12.8f %12.8f %6d)" % t
+    print HEADER_VTX
 
 
 def plotDistributionOfTracks(eventsRef,
@@ -262,6 +301,9 @@ def main(args):
                             dumpHits = args.dumpHits,
                             selector = args.selector,
                             mvavals = args.mvavals)
+    if args.vertices:
+      printVertexInformation(eventsRef,
+                             collection_label = args.vertices)
     if args.ntuplize:
       trackNtuplizer(eventsRef, t)
 
@@ -314,6 +356,10 @@ if __name__ == '__main__':
                       nargs = '?',
                       help = 'Print track information for the specified collection label.',
                       type = str)
+  parser.add_argument('-v', '--vertices',
+                      nargs = '?',
+                      help = 'Print vertex information for the specified collection label.',
+                      type = str)
   parser.add_argument('-q', '--quality',
                       default = 'ANY',
                       nargs = '?',
@@ -322,7 +368,7 @@ if __name__ == '__main__':
   parser.add_argument('-s', '--sortIndex',
                       default = 0,
                       nargs = '?',
-                      help = """Index of sorting paramter:
+                      help = """Index of sorting paramter [only for tracks]:
                                 0 = eta+phi,
                                 1 =  ori/new,
                                 2 = eta, 3 = phi, 4 = pt, 5 = numValidHits,
