@@ -44,6 +44,9 @@ def printTrackInformation(eventsRef,
                                                 eventsRef.eventAuxiliary().luminosityBlock(),
                                                 eventsRef.eventAuxiliary().event())
     print HEADER
+    if not tracksRef.isValid():
+      print "Missing collection ", label, container_kind
+      continue
     tr = []
     dump_index = 0
     for track in tracksRef.product():
