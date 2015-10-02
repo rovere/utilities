@@ -312,7 +312,6 @@ if __name__ == '__main__':
                       type = str,
                       required = False)
   parser.add_argument('-t', '--tracks',
-                      default = 'generalTracks',
                       nargs = '?',
                       help = 'Print track information for the specified collection label.',
                       type = str)
