@@ -37,14 +37,16 @@ def printTrackInformation(eventsRef,
   tracksRef = Handle(container_kind)
   label = collection_label
   print "Analyzing Tracks: %s of quality %s" % (collection_label, quality)
-  print HEADER
   for e in range(eventsRef.size()):
     a = eventsRef.to(e)
     a = eventsRef.getByLabel(label, tracksRef)
+    print "Run: %7d, LS: %5d, Event: %14d\n" % (eventsRef.eventAuxiliary().run(),
+                                                eventsRef.eventAuxiliary().luminosityBlock(),
+                                                eventsRef.eventAuxiliary().event())
+    print HEADER
     tr = []
     dump_index = 0
     for track in tracksRef.product():
-#      print (10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4,track.quality(track.qualityByName("highPurity")))
       keep_track = False
       if quality == 'ANY':
         keep_track = True
@@ -72,12 +74,6 @@ def printTrackInformation(eventsRef,
           print " Hit linked to cluster [key]: %d" % te.recHit(h).get().cluster().key()
           print idtodet.id2det(int(te.recHit(h).get().rawId()))
       dump_index += 1
-      # print "Event %d/LS %d, track [phi,eta,pt,dxy,dz,ndof,chi2,algo,ValidSiStripHits,ValidPixelHits] = [%f, %f, %f, %f, %f, %f, %f, %f, %f, %f]" % (eventsRef.eventAuxiliary().event(),
-      #                                                                                                                                                eventsRef.eventAuxiliary().luminosityBlock(),
-      #                                                                                                                                                track.phi(), track.eta(), track.pt(),
-      #                                                                                                                                                track.dxy(), track.dz(), track.ndof(),track.chi2(),
-      #                                                                                                                                                track.algo()-4, track.hitPattern().numberOfValidStripHits(),
-      #                                                                                                                                                track.hitPattern().numberOfValidPixelHits())
 
     if selector:
       selectorRef = Handle('edm::ValueMap<int>')
