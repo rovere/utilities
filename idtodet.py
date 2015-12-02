@@ -30,8 +30,6 @@ medium_dets = ['Unknown', 'PB','PE',
                'TIB', 'TID', 'TOB', 'TEC']
 module_dets = ['UNKNOWNGEOMETRY', 'IB1', 'IB2', 'OB1', 'OB2', 'W1A', 'W2A', 'W3A', 'W1B', 'W2B', 'W3B', 'W4', 'W5', 'W6', 'W7']
 
-if len(sys.argv) < 2:
-    print "Error. Usage %s id\n.Quitting\n" % sys.argv[0]
 
 def glued(id):
     if ((id>>0) & 0x3) == 1:
@@ -93,5 +91,45 @@ def id2det(id):
         if medium_structure == 'PB':
             print "Layer %d" % int((id>>PB_Offset) & PB_Mask) 
 
+def id2det2String(id):
+    ret = '%d ' % id
+    big_structure = big_dets[id>>big_det_offset&big_det_mask - 1]
+    if big_structure == 'Tracker':
+        medium_structure = medium_dets[id>>medium_det_offset&medium_det_mask]
+        ret += " %s" % medium_structure
+        if medium_structure == 'TIB':
+            ret += " %d" % int((id>>TIB_Offset) & TIB_Mask) 
+        if medium_structure == 'TOB':
+            ret += " %d" % int((id>>TOB_Offset) & TOB_Mask) 
+        if medium_structure == 'TID':
+            ring_id = (id>>9) & 0x3
+            ret += ' ring: %d' % ring_id
+            side = int((id>>13) & 0x3)
+            ret += " Side: %d (1:neg 2:plus) " % side
+            wheel = int((id>>11) & 0x3)
+            isDoubleSide = (glued(id) == 0 and ( ring_id == 1 or ring_id == 2 ))
+            ret += " DiskNumber: %d" % wheel
+            ret += " isDoubleSide: %d" % isDoubleSide
+            ret += " Stereo: %d (0:Not Stereo, !0:Stereo)" % stereo(id)
+            ret += " Glued: %d  (0:Not glued, !0:Glued)" % glued(id)
+            isRPhi = (stereo(id) == 0 and not isDoubleSide)
+            ret += " isRPhi: %d" % isRPhi
+            ret += " PartnerId: %d" % partnerId(id)
+        if medium_structure == 'TEC':
+            ring_id = (id>>ringStartBitTEC) & ringMaskTEC
+            ret += ' ring: %d' % ring_id
+            side = (id>>TEC_sideStartBit) & TEC_sideMask
+            ret += " Side: %d (1:neg 2:plus) " % side
+            wheel = (id>>TEC_wheelStartBit & TEC_wheelMask)
+            ret += " Wheel: %d" % wheel
+            ret += " isDoubleSide: %d" % (glued(id) == 0 and ( ring_id == 1 or ring_id == 2 or ring_id == 5 ))
+            ret += " Glued: %d (0:Not glued, !0:Glued)" % glued(id) 
+            ret += " PartnerId: %d" % partnerId(id)
+        if medium_structure == 'PB':
+            ret += " Layer %d" % int((id>>PB_Offset) & PB_Mask) 
+    return ret
+
 if __name__ == '__main__':
-    id2det(int(sys.argv[1]))
+  if len(sys.argv) < 2:
+    print "Error. Usage %s id\n.Quitting\n" % sys.argv[0]
+  id2det(int(sys.argv[1]))
