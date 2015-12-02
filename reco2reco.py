@@ -343,27 +343,27 @@ def runComparison():
       compareTwoReco(trValOri, trValNew, histos)
 
     # Pt
-    histos.setdefault('eff', histos['num'].Clone("Efficiency_pt"))
+    histos.setdefault('eff', histos['num'].Clone("Efficiency_pt")).SetTitle('Efficiency_pt')
     computeEfficiency(histos['num'], histos['den'], histos['eff'], computeFake=False)
-    histos.setdefault('fake', histos['fake_num'].Clone("Fake"))
+    histos.setdefault('fake', histos['fake_num'].Clone("Fake_pt")).SetTitle('Fake_pt')
     computeEfficiency(histos['fake_num'], histos['fake_den'], histos['fake'], computeFake=True)
 
     # Eta
-    histos.setdefault('eff_eta', histos['num_eta'].Clone("Efficiency_eta"))
+    histos.setdefault('eff_eta', histos['num_eta'].Clone("Efficiency_eta")).SetTitle('Efficiency_eta')
     computeEfficiency(histos['num_eta'], histos['den_eta'], histos['eff_eta'], computeFake=False)
-    histos.setdefault('fake_eta', histos['fake_num_eta'].Clone("Fake"))
+    histos.setdefault('fake_eta', histos['fake_num_eta'].Clone("Fake")).SetTitle('Fake_eta')
     computeEfficiency(histos['fake_num_eta'], histos['fake_den_eta'], histos['fake_eta'], computeFake=True)
 
     # Number of valid hits
-    histos.setdefault('eff_hits', histos['num_hits'].Clone("Efficiency_hits"))
+    histos.setdefault('eff_hits', histos['num_hits'].Clone("Efficiency_hits")).SetTitle('Efficiency_hits')
     computeEfficiency(histos['num_hits'], histos['den_hits'], histos['eff_hits'], computeFake=False)
-    histos.setdefault('fake_hits', histos['fake_num_hits'].Clone("Fake"))
+    histos.setdefault('fake_hits', histos['fake_num_hits'].Clone("Fake")).SetTitle('Fake_hits')
     computeEfficiency(histos['fake_num_hits'], histos['fake_den_hits'], histos['fake_hits'], computeFake=True)
 
     # Algo
-    histos.setdefault('eff_algo', histos['num_algo'].Clone("Efficiency_algo"))
+    histos.setdefault('eff_algo', histos['num_algo'].Clone("Efficiency_algo")).SetTitle('Efficiency_algo')
     computeEfficiency(histos['num_algo'], histos['den_algo'], histos['eff_algo'], computeFake=False)
-    histos.setdefault('fake_algo', histos['fake_num_algo'].Clone("Fake"))
+    histos.setdefault('fake_algo', histos['fake_num_algo'].Clone("Fake")).SetTitle('Fake_algo')
     computeEfficiency(histos['fake_num_algo'], histos['fake_den_algo'], histos['fake_algo'], computeFake=True)
 
 
