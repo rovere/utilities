@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, argparse
+from struct import unpack
 from autovars import *
 from ObjectsNtuple import *
 
@@ -19,25 +20,75 @@ qualities = OrderedDict([
 (  'QUALITYSIZE',   7)
 ])
 
+det = {1:'PXB',
+       2:'PXF',
+       3:'TIB',
+       4:'TID',
+       5:'TOB',
+       6:'TEC'}
+subdet = {'PXB': { 1:'Layer1', 2:'Layer2', 3:'Layer3'},
+          'PXF': { 1:'Disk1',  2:'Disk2'},
+          'TIB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4'},
+          'TID': { 1:'wheel1', 2:'wheel2', 3:'wheel3'},
+          'TOB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4', 5:'Layer5', 6:'Layer6'},
+          'TEC': { 1:'wheel1', 2:'wheel2', 3:'wheel3', 4:'wheel4', 5:'wheel5', 6:'wheel6', 7:'wheel7', 8:'wheel8', 9:'wheel9'}}
+
+
 # Do not forget trailing '/'.
 EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacyJan22/150223_172317/0000/'
 # Grab it after some lookups throu type -a eoscms/eos
 EOS_COMMAND = '/afs/cern.ch/project/eos/installation/0.3.84-aquamarine/bin/eos.select'
-HEADER = "(   Idx            'ori'         eta          phi           pt  NumValidHits  NumValidPixelHits ndof         chi2   Algo-4   HP?  key_idx)"
+HEADER = "(           Idx  'ori'       eta        phi         pt  NVHits  NVPHits ndof       chi2  Algo-4   HP?  OriAlgo-4    LVHitLoc  stopR     key_idx)"
 HEADER_VTX = "(  Chi2     ndof     normChi2     fake?   Valid?   NTrks      x            y            z          xE          yE           zE         index)"
 
+def lastValidHitFromHP(hp):
+  hit_category = 0 # Tracker hits
+  last_valid_hit_location = ''
+  for hit in range(0, hp.numberOfHits(hit_category)):
+    pattern = hp.getHitPattern(hit_category, hit)
+    valid = hp.validHitFilter(pattern)
+    if valid:
+      d = det[hp.getSubStructure(pattern)]
+      sd = subdet[d][hp.getSubSubStructure(pattern)]
+      last_valid_hit_location = d + '_' + sd
+  return last_valid_hit_location
+
+def fillStopReason(histo, hp, stopReason):
+  hit_category = 0 # Tracker hits
+  last_valid_hit_location = 0
+  for hit in range(0, hp.numberOfHits(hit_category)):
+    pattern = hp.getHitPattern(hit_category, hit)
+    valid = hp.validHitFilter(pattern)
+    if valid:
+      d = hp.getSubStructure(pattern)
+      sd = hp.getSubSubStructure(pattern)
+      last_valid_hit_location = 10 * d + sd
+  histo.Fill(last_valid_hit_location, stopReason)
+  
+
 def printTrackInformation(eventsRef,
-                          container_kind = "std::vector<reco::Track>",
-                          collection_label = "ctfWithMaterialTracksP5",
-                          quality = 'highPurity',
-                          sort_index = 0,
-                          dumpHits = -1,
-                          selector = None,
-                          mvavals = None):
+                          args):
+  container_kind = "std::vector<reco::Track>"
+  collection_label = args.tracks if args.tracks else "ctfWithMaterialTracksP5"
+  quality = args.quality if args.quality else 'highPurity'
+  sort_index = args.sortIndex if args.sortIndex else 0
+  dumpHits = args.dumpHits if args.dumpHits else -1
+  selector = args.selector if args.selector else None
+  mvavals = args.mvavals if args.mvavals else None
+  outfile = None
+  stopReason = None
   from DataFormats.FWLite import Handle, Events
   tracksRef = Handle(container_kind)
   label = collection_label
   print "Analyzing Tracks: %s of quality %s" % (collection_label, quality)
+  stopReason = None
+  if args.stopReason:
+    from ROOT import TFile, TH2F
+    outfile = TFile(args.stopReason[0], "RECREATE")
+    stopReason = TH2F("Stop Reason vs Tracker Component",
+                      "Stop Reason vs Tracker Component",
+                      70, 0.5, 69.5,
+                      256, -0.5, 255.5)
   for e in range(eventsRef.size()):
     a = eventsRef.to(e)
     a = eventsRef.getByLabel(label, tracksRef)
@@ -58,6 +109,7 @@ def printTrackInformation(eventsRef,
         if (track.quality(track.qualityByName(quality))) :
           keep_track = True
       if keep_track:
+          hp = track.hitPattern()
           tr.append((10*int(100*track.eta())+track.phi(),
                      "ori",
                      track.eta(),
@@ -68,8 +120,13 @@ def printTrackInformation(eventsRef,
                      track.ndof(),
                      track.chi2(),
                      track.algo()-4,
+                     track.originalAlgo()-4,
                      track.quality(track.qualityByName("highPurity")),
+                     lastValidHitFromHP(hp),
+                     int(unpack('@B', track.stopReason())[0]) if args.stopReason else 0,
                      dump_index))
+          if args.stopReason:
+            fillStopReason(stopReason, hp, int(unpack('@B', track.stopReason())[0]))
       if dump_index == dumpHits:
         print "Dumping hits for track index: %d" % dumpHits
         te = track.extra().get()
@@ -112,8 +169,12 @@ def printTrackInformation(eventsRef,
           
     tr.sort(key=lambda tr: tr[sort_index])
     for t in tr:
-      print "(%16.8f   %s %12.8f %12.8f %12.8f %13d %18d %4d %12.8f %7d %5d %6d)" % t
+      print "(%14.8f   %s %10.7f %10.7f %10.7f %7d %8d %4d %10.7f %7d %5d %10d %11s %5d %12d)" % t
     print HEADER
+  if args.stopReason:
+    outfile.cd()
+    stopReason.Write()
+    outfile.Close()
 
 def printVertexInformation(eventsRef,
                           container_kind = "std::vector<reco::Vertex>",
@@ -294,13 +355,7 @@ def main(args):
     print "Dumping from file: %s" % filename
     eventsRef = Events("%s" % filename)
     if args.tracks:
-      printTrackInformation(eventsRef,
-                            collection_label = args.tracks,
-                            quality = args.quality,
-                            sort_index = args.sortIndex,
-                            dumpHits = args.dumpHits,
-                            selector = args.selector,
-                            mvavals = args.mvavals)
+      printTrackInformation(eventsRef, args)
     if args.vertices:
       printVertexInformation(eventsRef,
                              collection_label = args.vertices)
@@ -396,7 +451,14 @@ if __name__ == '__main__':
                       default = False,
                       help = 'Run the Track Ntuplizer.',
                       action = 'store_true')
-  
+
+  parser.add_argument('-r', '--stopReason',
+                      default = None,
+                      nargs = 1,
+                      help = 'Histogram the distribution of the stop Reason for the selected tracks. Save the results in the filename specified.',
+                      type = str,
+                      required = False)
+
   args = parser.parse_args()
   if args.filename:
     main(args)
