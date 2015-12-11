@@ -44,9 +44,9 @@ def doWork(args):
                     if not t.quality(t.qualityByName(args.quality)):
                         continue
                 stop_reason = int(unpack('@B', t.stopReason())[0])
-                if stop_reason == 255:
+                if stop_reason == args.denReason:
                     no_reason_to_stop += 1
-                if stop_reason == 8:
+                if stop_reason == args.numReason:
                     ccc_stop_reason += 1
             if no_reason_to_stop == 0 or ccc_stop_reason == 0:
                 continue
@@ -82,7 +82,7 @@ def doWork(args):
         lumi_errors = array('f')
         lumi_errors.fromlist([0. for i in range(len(args.instlumis))])
         gr = TGraphErrors(len(lumis), lumis, x_mean_arr, lumi_errors, rms_arr)
-        gr.SetTitle("Average CCCTF lost hits/full Trajectories vs Inst. Luminosity")
+        gr.SetTitle("TrajectoryStopReason_%d/Trajectories_%d vs Inst. Luminosity" % (args.numReason, args.denReason))
         gr.SetMarkerStyle(22)
         gr.SetMarkerColor(kOrange)
         gr.SetLineColor(kOrange)
@@ -129,6 +129,29 @@ if __name__ == '__main__':
                         choices= ['ANY', 'highPurity', 'loose', 'tight'],
                         help = 'Select tracks with the specified quality only. ANY means select all tracks in the collection.',
                         type = str)
+    # UNINITIALIZED = 0,
+    # MAX_HITS = 1,
+    # MAX_LOST_HITS = 2,
+    # MAX_CONSECUTIVE_LOST_HITS = 3,
+    # LOST_HIT_FRACTION = 4,
+    # MIN_PT = 5,
+    # CHARGE_SIGNIFICANCE = 6,
+    # LOOPER = 7,
+    # MAX_CCC_LOST_HITS = 8,
+    # NO_SEGMENTS_FOR_VALID_LAYERS = 9,
+    # NOT_STOPPED = 255 // this is the max allowed since it will be streamed as type uint8_t
+    parser.add_argument('-n', '--numReason',
+                        action = 'store',
+                        type = int,
+                        choices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 255],
+                        default = 8,
+                        help = 'Trajectory Stop Reason to monitor (numerator)')
+    parser.add_argument('-d', '--denReason',
+                        action = 'store',
+                        type = int,
+                        choices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 255],
+                        default = 255,
+                        help = 'Trajectory Stop Reason to monitor (denominator)')
     parser.add_argument('-o', '--output',
                         help = 'Output ROOT files that will store the results',
                         type = str)
