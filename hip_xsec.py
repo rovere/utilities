@@ -18,6 +18,10 @@ def doWork(args):
     x_mean = [0. for i in range(len(args.files))]
     normalization = [0. for i in range(len(args.files))]
     rms =  [0. for i in range(len(args.files))]
+    barrel_hits_squared_mean = [0. for i in range(len(args.files))]
+    barrel_hits_mean = [0. for i in range(len(args.files))]
+    barrel_hits_normalization = [0. for i in range(len(args.files))]
+    barrel_hits_rms =  [0. for i in range(len(args.files))]
     for input_file in args.files:
         events = Events(input_file)
         for e in range(events.size()):
@@ -27,6 +31,15 @@ def doWork(args):
             a = events.getByLabel("generalTracks", tracks_h)
             for track in range(tracks_h.product().size()):
                 t = tracks_h.product()[track]
+                # take care of barrel hits calculation. Later
+                # calculation goes further down since they also "skim"
+                # events. For the barrel hits calculation, we only
+                # consider tracks with abs(eta) < 0.8 and of
+                # highPurity quality.
+                if t.quality(t.qualityByName('highPurity')) and abs(t.eta()) < 0.8 and t.pt() > 0.65:
+                    barrel_hits_mean[counter] += t.numberOfValidHits()
+                    barrel_hits_squared_mean[counter] += t.numberOfValidHits()**2
+                    barrel_hits_normalization[counter] += 1.
                 if args.quality and args.quality != 'ANY':
                     if not t.quality(t.qualityByName(args.quality)):
                         continue
@@ -48,6 +61,14 @@ def doWork(args):
                                                                                      rms[counter],
                                                                                      x_mean[counter]/args.instlumis[counter],
                                                                                      rms[counter]/args.instlumis[counter])
+        barrel_hits_mean[counter] = barrel_hits_mean[counter]/barrel_hits_normalization[counter]
+        barrel_hits_squared_mean[counter] = barrel_hits_squared_mean[counter]/barrel_hits_normalization[counter]
+        barrel_hits_rms[counter] = sqrt(barrel_hits_squared_mean[counter] - barrel_hits_mean[counter]**2)
+        print '%s: Barrel Hits mean and RMS: %f, %f, normalized to lumi mean and RMS: %f, %f' % (input_file,
+                                                                                                 barrel_hits_mean[counter],
+                                                                                                 barrel_hits_rms[counter],
+                                                                                                 barrel_hits_mean[counter]/args.instlumis[counter],
+                                                                                                 barrel_hits_rms[counter]/args.instlumis[counter])
         counter += 1
     if args.output:
         output_file = TFile(args.output, "RECREATE")
@@ -61,10 +82,21 @@ def doWork(args):
         lumi_errors = array('f')
         lumi_errors.fromlist([0. for i in range(len(args.instlumis))])
         gr = TGraphErrors(len(lumis), lumis, x_mean_arr, lumi_errors, rms_arr)
+        gr.SetTitle("Average CCCTF lost hits/full Trajectories vs Inst. Luminosity")
         gr.SetMarkerStyle(22)
         gr.SetMarkerColor(kOrange)
         gr.SetLineColor(kOrange)
         gr.Write()
+        barrel_hits_mean_arr = array('f')
+        barrel_hits_mean_arr.fromlist(barrel_hits_mean)
+        barrel_hits_rms_arr = array('f')
+        barrel_hits_rms_arr.fromlist(barrel_hits_rms)
+        gr2 = TGraphErrors(len(lumis), lumis, barrel_hits_mean_arr, lumi_errors, barrel_hits_rms_arr)
+        gr2.SetTitle("Average Barrel Hits vs Inst. Luminosity")
+        gr2.SetMarkerStyle(22)
+        gr2.SetMarkerColor(kOrange)
+        gr2.SetLineColor(kOrange)
+        gr2.Write()
         output_file.Close()
 
 def checkArgs(args):
