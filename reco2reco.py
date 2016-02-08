@@ -14,7 +14,7 @@ label = None # "generalTracks"
 DELTA_R_CUT = None # 0.01
 DELTA_PT_OVER_PT_CUT = None # 0.1
 
-variable2index = ["order", "sample", "eta", "phi", "pt", "hits", "phits", "ndof", "chi2", "algo", "quality"]
+variable2index = ["order", "sample", "eta", "phi", "pt", "hits", "phits", "ndof", "chi2", "algo", "originalAlgo", "quality"]
 histos = {}
 
 def match(a, b):
@@ -91,6 +91,8 @@ def compareTwoReco(reference, new, histos, debug=1):
     phi = getIndexOf("phi")
     hits = getIndexOf("hits")
     algo = getIndexOf("algo")
+    orialgo = getIndexOf("originalAlgo")
+    print " ".join("%10s" % k for k in variable2index)
     for original_index, original in enumerate(reference):
         # Fill in cumulative plots for the reference sample first
         histos['reference_hits_vs_algo'].Fill(original[algo], original[hits])
@@ -338,11 +340,11 @@ def runComparison(args):
     #   if (track.pt()<2) : continue
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4,track.quality(track.qualityByName("highPurity"))))
+                  trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))))
               else:
-                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.quality(track.qualityByName("highPurity"))
+                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4,track.quality(track.qualityByName("highPurity"))))
+              trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))))
       a = eventsNew.to(i)
       a = eventsNew.getByLabel(label, tracksNew)
       for track in tracksNew.product():
@@ -351,11 +353,11 @@ def runComparison(args):
     #      if (track.pt()<2) : continue
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4,track.quality(track.qualityByName("highPurity"))))
+                  trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))))
               else:
-                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.quality(track.qualityByName("highPurity"))
+                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4,track.quality(track.qualityByName("highPurity"))))
+              trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))))
       a = trValOri.sort(key=lambda tr: tr[0])
       a = trValNew.sort(key=lambda tr: tr[0])
       compareTwoReco(trValOri, trValNew, histos)
