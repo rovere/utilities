@@ -61,8 +61,8 @@ def main(args):
     # Same range extension for the BX number
     if args.bn:
         numerical_bn.extend(explicitRange(args.bn))
-    print "Selecting LS: ", numerical_lumi
-    print "Selecting BN: ", numerical_bn
+    print "\nSelecting LS: ", numerical_lumi
+    print "\nSelecting BN: ", numerical_bn
 
     f = TFile(args.output, "RECREATE")
     tracks_h = Handle("std::vector<reco::Track>")
