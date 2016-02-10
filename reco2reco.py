@@ -386,7 +386,6 @@ def runComparison(args):
       index_new.setdefault((run, ls, event_number), i)
 
     for i in range(0, eventsRef.size()):
-    #for i in range(0, 2):
       a = eventsRef.to(i)
       print "Event", i
       a = eventsRef.getByLabel(label, tracksRef)
@@ -396,9 +395,6 @@ def runComparison(args):
       trValOri = []
       trValNew = []
       for track in tracksRef.product():
-    #   if (track.phi()<0) : continue
-    #   if (track.eta()<0) : continue
-    #   if (track.pt()<2) : continue
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
                   trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
