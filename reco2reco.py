@@ -414,9 +414,6 @@ def runComparison(args):
       ls = eventsNew.eventAuxiliary().luminosityBlock()
       event_number = eventsNew.eventAuxiliary().event()
       for track in tracksNew.product():
-          #   if (track.phi()<0) : continue
-          #   if (track.eta()<0) : continue
-    #      if (track.pt()<2) : continue
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
                   trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
