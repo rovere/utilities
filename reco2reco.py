@@ -1,9 +1,19 @@
 #!/usr/bin/env python
 
+# Pure trick to start ROOT in batch mode, pass this only option to it
+# and the rest of the command line options to this code.
+import sys
+oldargv = sys.argv[:]
+sys.argv = [ '-b', '-n' ]
+from ROOT import *
+gROOT.SetBatch(True)
+sys.argv = oldargv
+
 
 import argparse
 import os, re
 from math import sqrt
+from idtodet import id2det2String
 
 eventsRef = None # Events("/afs/cern.ch/work/r/rovere/TrackingPOG/RecoRun1vsRecoRun2/CMSSW_7_4_0_pre8/src/relVal_requests/step3RunIReco.root")
 eventsNew = None # Events("/afs/cern.ch/work/r/rovere/TrackingPOG/RecoRun1vsRecoRun2/CMSSW_7_4_0_pre8/src/relVal_requests/step3.root")
@@ -14,8 +24,30 @@ label = None # "generalTracks"
 DELTA_R_CUT = None # 0.01
 DELTA_PT_OVER_PT_CUT = None # 0.1
 
-variable2index = ["order", "sample", "eta", "phi", "pt", "hits", "phits", "ndof", "chi2", "algo", "originalAlgo", "quality", "run", "ls", "event"]
+variable2index = ["order", "sample", "eta", "phi", "pt", "hits", "phits", "ndof", "chi2", "algoMask", "algo", "originalAlgo", "quality", "HitsFromTrack", "run", "ls", "event"]
 histos = {}
+
+def decodeHitsFromTrack(track, debug):
+    hits = []
+    try:
+        te = track.extra().get()
+        for h in range(0, te.recHitsSize()):
+            try:
+                if debug:
+                    print "\n\n *** Hit number %d ***" % h
+                    print " Hit linked to cluster [key]: %d" % te.recHit(h).get().cluster().key()
+                    print idtodet.id2det(int(te.recHit(h).get().rawId()))
+                hits.append((h, te.recHit(h).get().cluster().key(), id2det2String(int(te.recHit(h).get().rawId()))))
+            except:
+                hits.append((h, "Invalid or other Error"))
+                pass
+    except:
+        # If you jump here it means, very reasonably, that the
+        # collection of hits (TrackExtra) has not been stored in the
+        # supplied input file. Instead of crashing, we move on with an
+        # empty list of hits.
+        pass
+    return hits
 
 def match(a, b):
     eta = getIndexOf('eta')
@@ -33,12 +65,16 @@ def getIndexOf(variable):
     return variable2index.index(variable)
 
 def producePlots(histos, suffix):
-    from ROOT import TCanvas
+    from ROOT import TCanvas, gStyle
+    gStyle.SetPaintTextFormat("4.0f");
+    gStyle.SetTextFont(62)
     c = TCanvas("c", "c", 1024, 1024)
     options = ''
     for h in histos.keys():
         if re.match('.*_vs_.*', h):
-            options += 'BOX'
+            options = 'BOX'
+        if re.match('^Diff.*', h):
+            options = 'TEXT'
         histos[h].Draw(options)
         c.SaveAs("%s_%s.png" % (h, suffix))
 
@@ -137,7 +173,7 @@ def compareTwoReco(reference, new, histos, debug=1):
             assert original[ls] == new[iBest][ls], "ls mismatch"
             assert original[event_number] == new[iBest][event_number], "event mismatch"
             if debug:
-                print original_index
+                print original_index, " ".join([k for k in variable2index])
                 print original
                 print new[iBest]
                 print iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch, '\n'
@@ -397,11 +433,21 @@ def runComparison(args):
       for track in tracksRef.product():
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
+                  trValOri.append((10*int(100*track.eta())+track.phi(), "ori",
+                                   track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() ,
+                                   track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                   track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                   track.quality(track.qualityByName("highPurity")),
+                                   decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
               else:
-                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
+                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValOri.append((10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
+              trValOri.append((10*int(100*track.eta())+track.phi(), "ori",
+                               track.eta(), track.phi(), track.pt(),  track.numberOfValidHits(),
+                               track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                               track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                               track.quality(track.qualityByName("highPurity")),
+                               decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
       index = None
       if (run, ls, event_number) in index_new.keys():
           index = index_new[(run, ls, event_number)]
@@ -416,13 +462,24 @@ def runComparison(args):
       for track in tracksNew.product():
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
+                  trValNew.append((10*int(100*track.eta())+track.phi(), "new",
+                                   track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
+                                   track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                   track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                   track.quality(track.qualityByName("highPurity")),
+                                   decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
               else:
-                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
+                  print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValNew.append((10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity")), run, ls, event_number))
-      a = trValOri.sort(key=lambda tr: tr[0])
-      a = trValNew.sort(key=lambda tr: tr[0])
+              trValNew.append((10*int(100*track.eta())+track.phi(), "new",
+                               track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
+                               track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                               track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                               track.quality(track.qualityByName("highPurity")),
+                               decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+      sort_index = args.sortIndex if args.sortIndex else 0        
+      a = trValOri.sort(key=lambda tr: tr[sort_index])
+      a = trValNew.sort(key=lambda tr: tr[sort_index])
       compareTwoReco(trValOri, trValNew, histos)
 
     # Pt
@@ -461,6 +518,14 @@ def runComparison(args):
     histos.setdefault('fake_orialgo', histos['fake_num_orialgo'].Clone("Fake")).SetTitle('Fake_orialgo')
     computeEfficiency(histos['fake_num_orialgo'], histos['fake_den_orialgo'], histos['fake_orialgo'], computeFake=True)
 
+    # Difference of hits_vs_algo
+    histos.setdefault('Difference_hits_vs_algo', histos['comparison_hits_vs_algo'].Clone("Difference_hits_vs_algo")).SetTitle('Difference_hits_vs_algo')
+    histos['Difference_hits_vs_algo'].Add(histos['reference_hits_vs_algo'], -1.)
+
+    # Difference of hits_vs_orialgo
+    histos.setdefault('Difference_hits_vs_orialgo', histos['comparison_hits_vs_orialgo'].Clone("Difference_hits_vs_orialgo")).SetTitle('Difference_hits_vs_orialgo')
+    histos['Difference_hits_vs_orialgo'].Add(histos['reference_hits_vs_orialgo'], -1)
+    
 
 def writeHistograms(args):
     from ROOT import TFile
@@ -516,6 +581,15 @@ if __name__ == '__main__':
                         dest='batch_mode',
                         action='store_true',
                         help='Enable batch mode for ROOT.')
+    parser.add_argument('-D', '--Debug',
+                        dest='debug_mode',
+                        action='store_true',
+                        help='Enable debug mode.')
+    parser.add_argument('-S', '--sortIndex',
+                        default = 0,
+                        nargs = '?',
+                        help = "Index of sorting paramter [only for tracks]:\n %s" % "".join(map(lambda x: "%d=%s,\n"%x, zip([i for i in range(50)], variable2index))),
+                        type = int)
 
     args = parser.parse_args()
     initializeGlobals(args)
