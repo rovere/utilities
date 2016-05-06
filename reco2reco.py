@@ -14,6 +14,7 @@ import argparse
 import os, re
 from math import sqrt
 from idtodet import id2det2String
+from collections import namedtuple
 
 eventsRef = None # Events("/afs/cern.ch/work/r/rovere/TrackingPOG/RecoRun1vsRecoRun2/CMSSW_7_4_0_pre8/src/relVal_requests/step3RunIReco.root")
 eventsNew = None # Events("/afs/cern.ch/work/r/rovere/TrackingPOG/RecoRun1vsRecoRun2/CMSSW_7_4_0_pre8/src/relVal_requests/step3.root")
@@ -24,8 +25,14 @@ label = None # "generalTracks"
 DELTA_R_CUT = None # 0.01
 DELTA_PT_OVER_PT_CUT = None # 0.1
 
-variable2index = ["order", "sample", "eta", "phi", "pt", "hits", "phits", "ndof", "chi2", "algoMask", "algo", "originalAlgo", "quality", "HitsFromTrack", "run", "ls", "event"]
+variables = ["order", "sample", "eta",
+             "phi", "pt", "hits", "phits",
+             "ndof", "chi2", "algoMask",
+             "algo", "orialgo",
+             "quality", "HitsFromTrack",
+             "run", "ls", "event"]
 histos = {}
+Track = namedtuple('Tracks', ' '.join(variables))
 
 def decodeHitsFromTrack(track, debug):
     hits = []
@@ -50,19 +57,13 @@ def decodeHitsFromTrack(track, debug):
     return hits
 
 def match(a, b):
-    eta = getIndexOf('eta')
-    pt = getIndexOf('pt')
-    phi = getIndexOf('phi')
-    deltaR = sqrt(( (a[eta] - b[eta])**2 + (a[phi] - b[phi])**2))
-    deltaPt_over_Pt =abs(a[pt]-b[pt])/a[pt]
+    deltaR = sqrt((a.eta - b.eta)**2 + (a.phi - b.phi)**2)
+    deltaPt_over_Pt = abs(a.pt - b.pt)/a.pt
 #    print "DeltaR: %f, DeltaPt_over_Pt: %f" % (
 #        deltaR,
 #        deltaPt_over_Pt
 #        )
     return (deltaR, deltaPt_over_Pt)
-
-def getIndexOf(variable):
-    return variable2index.index(variable)
 
 def producePlots(histos, suffix):
     from ROOT import TCanvas, gStyle
@@ -122,27 +123,18 @@ def compareTwoReco(reference, new, histos, debug=1):
 
     # Tracks with index False are the ones that have been matched to the comparison track collection
     original_valid = [True for i in reference]
-    pt = getIndexOf("pt")
-    eta = getIndexOf("eta")
-    phi = getIndexOf("phi")
-    hits = getIndexOf("hits")
-    algo = getIndexOf("algo")
-    orialgo = getIndexOf("originalAlgo")
-    run = getIndexOf("run")
-    ls = getIndexOf("ls")
-    event_number = getIndexOf("event")
-    print " ".join("%10s" % k for k in variable2index)
+    print " ".join("%10s" % k for k in variables)
     for original_index, original in enumerate(reference):
         # Fill in cumulative plots for the reference sample first
-        histos['reference_hits_vs_algo'].Fill(original[algo], original[hits])
-        histos['reference_hits_vs_orialgo'].Fill(original[orialgo], original[hits])
-        histos['reference_hits_vs_pt'].Fill(original[pt], original[hits])
-        histos['den'].Fill(original[pt])
-        histos['den_eta'].Fill(original[eta])
-        histos['den_phi'].Fill(original[phi])
-        histos['den_hits'].Fill(original[hits])
-        histos['den_algo'].Fill(original[algo])
-        histos['den_orialgo'].Fill(original[orialgo])
+        histos['reference_hits_vs_algo'].Fill(original.algo, original.hits)
+        histos['reference_hits_vs_orialgo'].Fill(original.orialgo, original.hits)
+        histos['reference_hits_vs_pt'].Fill(original.pt, original.hits)
+        histos['den'].Fill(original.pt)
+        histos['den_eta'].Fill(original.eta)
+        histos['den_phi'].Fill(original.phi)
+        histos['den_hits'].Fill(original.hits)
+        histos['den_algo'].Fill(original.algo)
+        histos['den_orialgo'].Fill(original.orialgo)
 
         # Now start to look for a matching track in the comparison track collection
         window_depth = 400 # elements to span to look for best candidate
@@ -169,29 +161,28 @@ def compareTwoReco(reference, new, histos, debug=1):
             # track collection
             new_valid[iBest] = False
             original_valid[original_index] = False
-            assert original[run] == new[iBest][run], "run mismatch"
-            assert original[ls] == new[iBest][ls], "ls mismatch"
-            assert original[event_number] == new[iBest][event_number], "event mismatch"
+            assert original.run == new[iBest].run, "run mismatch"
+            assert original.ls == new[iBest].ls, "ls mismatch"
+            assert original.event == new[iBest].event, "event mismatch"
             if debug:
-                print original_index, " ".join([k for k in variable2index])
                 print original
                 print new[iBest]
                 print iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch, '\n'
-            histos['num'].Fill(original[pt])
-            histos['num_eta'].Fill(original[eta])
-            histos['num_phi'].Fill(original[phi])
-            histos['num_hits'].Fill(original[hits])
-            histos['num_algo'].Fill(original[algo])
-            histos['num_orialgo'].Fill(original[orialgo])
-            histos['fake_num'].Fill(new[iBest][pt])
-            histos['fake_num_eta'].Fill(new[iBest][eta])
-            histos['fake_num_phi'].Fill(new[iBest][phi])
-            histos['fake_num_hits'].Fill(new[iBest][hits])
-            histos['fake_num_algo'].Fill(new[iBest][algo])
-            histos['fake_num_orialgo'].Fill(new[iBest][orialgo])
-            histos['comparison_algo_vs_reference_algo'].Fill(original[algo], new[iBest][algo])
-            histos['comparison_orialgo_vs_reference_orialgo'].Fill(original[orialgo], new[iBest][orialgo])
-            histos['comparison_hits_vs_reference_hits'].Fill(original[hits], new[iBest][hits])
+            histos['num'].Fill(original.pt)
+            histos['num_eta'].Fill(original.eta)
+            histos['num_phi'].Fill(original.phi)
+            histos['num_hits'].Fill(original.hits)
+            histos['num_algo'].Fill(original.algo)
+            histos['num_orialgo'].Fill(original.orialgo)
+            histos['fake_num'].Fill(new[iBest].pt)
+            histos['fake_num_eta'].Fill(new[iBest].eta)
+            histos['fake_num_phi'].Fill(new[iBest].phi)
+            histos['fake_num_hits'].Fill(new[iBest].hits)
+            histos['fake_num_algo'].Fill(new[iBest].algo)
+            histos['fake_num_orialgo'].Fill(new[iBest].orialgo)
+            histos['comparison_algo_vs_reference_algo'].Fill(original.algo, new[iBest].algo)
+            histos['comparison_orialgo_vs_reference_orialgo'].Fill(original.orialgo, new[iBest].orialgo)
+            histos['comparison_hits_vs_reference_hits'].Fill(original.hits, new[iBest].hits)
 
     # Let's try a recovery loop with somewhat lesser stringent cuts
     for original_index, original in enumerate(reference):
@@ -225,34 +216,34 @@ def compareTwoReco(reference, new, histos, debug=1):
                     print "Recovery ", original
                     print "Recovery ", new[iBest]
                     print "Recovery ", iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch
-                histos['num'].Fill(original[pt])
-                histos['num_eta'].Fill(original[eta])
-                histos['num_phi'].Fill(original[phi])
-                histos['num_hits'].Fill(original[hits])
-                histos['num_algo'].Fill(original[algo])
-                histos['num_orialgo'].Fill(original[orialgo])
-                histos['fake_num'].Fill(new[iBest][pt])
-                histos['fake_num_eta'].Fill(new[iBest][eta])
-                histos['fake_num_hits'].Fill(new[iBest][hits])
-                histos['fake_num_algo'].Fill(new[iBest][algo])
-                histos['fake_num_orialgo'].Fill(new[iBest][orialgo])
-                histos['comparison_algo_vs_reference_algo'].Fill(original[algo], new[iBest][algo])
-                histos['comparison_orialgo_vs_reference_orialgo'].Fill(original[orialgo], new[iBest][orialgo])
-                histos['comparison_hits_vs_reference_hits'].Fill(original[hits], new[iBest][hits])
+                histos['num'].Fill(original.pt)
+                histos['num_eta'].Fill(original.eta)
+                histos['num_phi'].Fill(original.phi)
+                histos['num_hits'].Fill(original.hits)
+                histos['num_algo'].Fill(original.algo)
+                histos['num_orialgo'].Fill(original.orialgo)
+                histos['fake_num'].Fill(new[iBest].pt)
+                histos['fake_num_eta'].Fill(new[iBest].eta)
+                histos['fake_num_hits'].Fill(new[iBest].hits)
+                histos['fake_num_algo'].Fill(new[iBest].algo)
+                histos['fake_num_orialgo'].Fill(new[iBest].orialgo)
+                histos['comparison_algo_vs_reference_algo'].Fill(original.algo, new[iBest].algo)
+                histos['comparison_orialgo_vs_reference_orialgo'].Fill(original.orialgo, new[iBest].orialgo)
+                histos['comparison_hits_vs_reference_hits'].Fill(original.hits, new[iBest].hits)
 
 
     # These are the tracks in the reference track collection
     # that have *not* been associated to any track in the
     # comparison collection == > LOST TRACKS
     reference_not_assigned = [j for i,j in enumerate(reference) if original_valid[i]]
-    reference_not_assigned.sort(key=lambda tr: tr[algo])
+    reference_not_assigned.sort(key=lambda tr: tr.algo)
     if debug:
         print "**** Lost tracks **** %d" % len(reference_not_assigned)
     for j in reference_not_assigned:
-            histos['lost_hits_vs_algo'].Fill(j[algo], j[hits])
-            histos['lost_hits_vs_orialgo'].Fill(j[orialgo], j[hits])
-            histos['lost_hits_vs_pt'].Fill(j[pt], j[hits])
-            histos['lost_eta'].Fill(j[eta])
+            histos['lost_hits_vs_algo'].Fill(j.algo, j.hits)
+            histos['lost_hits_vs_orialgo'].Fill(j.orialgo, j.hits)
+            histos['lost_hits_vs_pt'].Fill(j.pt, j.hits)
+            histos['lost_eta'].Fill(j.eta)
             if debug:
                 print j
     if debug:
@@ -261,27 +252,27 @@ def compareTwoReco(reference, new, histos, debug=1):
     # Fake Tracks
     for i, j in enumerate(new):
         # Fill in the cumulative plots related to tracks in the comparison track collection
-        histos['comparison_hits_vs_algo'].Fill(j[algo], j[hits])
-        histos['comparison_hits_vs_orialgo'].Fill(j[orialgo], j[hits])
-        histos['comparison_hits_vs_pt'].Fill(j[pt], j[hits])
-        histos['fake_den'].Fill(j[pt])
-        histos['fake_den_eta'].Fill(j[eta])
-        histos['fake_den_phi'].Fill(j[phi])
-        histos['fake_den_hits'].Fill(j[hits])
-        histos['fake_den_algo'].Fill(j[algo])
-        histos['fake_den_orialgo'].Fill(j[orialgo])
+        histos['comparison_hits_vs_algo'].Fill(j.algo, j.hits)
+        histos['comparison_hits_vs_orialgo'].Fill(j.orialgo, j.hits)
+        histos['comparison_hits_vs_pt'].Fill(j.pt, j.hits)
+        histos['fake_den'].Fill(j.pt)
+        histos['fake_den_eta'].Fill(j.eta)
+        histos['fake_den_phi'].Fill(j.phi)
+        histos['fake_den_hits'].Fill(j.hits)
+        histos['fake_den_algo'].Fill(j.algo)
+        histos['fake_den_orialgo'].Fill(j.orialgo)
 
     # These are the tracks in the comparison track collection
     # that have *not* been associated to any track in the
     # reference collection ==> FAKE TRACKS
     new_not_assigned = [j for i,j in enumerate(new) if new_valid[i]]
-    new_not_assigned.sort(key=lambda tr: tr[algo])
+    new_not_assigned.sort(key=lambda tr: tr.algo)
     if debug:
         print "**** Fake tracks **** %d" % len(new_not_assigned)
     for j in new_not_assigned:
-            histos['fake_hits_vs_algo'].Fill(j[algo], j[hits])
-            histos['fake_hits_vs_orialgo'].Fill(j[orialgo], j[hits])
-            histos['fake_hits_vs_pt'].Fill(j[pt], j[hits])
+            histos['fake_hits_vs_algo'].Fill(j.algo, j.hits)
+            histos['fake_hits_vs_orialgo'].Fill(j.orialgo, j.hits)
+            histos['fake_hits_vs_pt'].Fill(j.pt, j.hits)
             if debug:
                 print j
     if debug:
@@ -442,12 +433,12 @@ def runComparison(args):
               else:
                   print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValOri.append((10*int(100*track.eta())+track.phi(), "ori",
-                               track.eta(), track.phi(), track.pt(),  track.numberOfValidHits(),
-                               track.hitPattern().numberOfValidPixelHits(), track.ndof(),
-                               track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
-                               track.quality(track.qualityByName("highPurity")),
-                               decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+              trValOri.append(Track(10*int(100*track.eta())+track.phi(), "ori",
+                                    track.eta(), track.phi(), track.pt(),  track.numberOfValidHits(),
+                                    track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                    track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                    track.quality(track.qualityByName("highPurity")),
+                                    decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
       index = None
       if (run, ls, event_number) in index_new.keys():
           index = index_new[(run, ls, event_number)]
@@ -462,21 +453,21 @@ def runComparison(args):
       for track in tracksNew.product():
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValNew.append((10*int(100*track.eta())+track.phi(), "new",
-                                   track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
-                                   track.hitPattern().numberOfValidPixelHits(), track.ndof(),
-                                   track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
-                                   track.quality(track.qualityByName("highPurity")),
-                                   decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+                  trValNew.append(Track(10*int(100*track.eta())+track.phi(), "new",
+                                        track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
+                                        track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                        track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                        track.quality(track.qualityByName("highPurity")),
+                                        decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
               else:
                   print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
-              trValNew.append((10*int(100*track.eta())+track.phi(), "new",
-                               track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
-                               track.hitPattern().numberOfValidPixelHits(), track.ndof(),
-                               track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
-                               track.quality(track.qualityByName("highPurity")),
-                               decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+              trValNew.append(Track(10*int(100*track.eta())+track.phi(), "new",
+                                    track.eta(), track.phi(), track.pt(), track.numberOfValidHits(),
+                                    track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                    track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                    track.quality(track.qualityByName("highPurity")),
+                                    decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
       sort_index = args.sortIndex if args.sortIndex else 0        
       a = trValOri.sort(key=lambda tr: tr[sort_index])
       a = trValNew.sort(key=lambda tr: tr[sort_index])
@@ -530,7 +521,8 @@ def runComparison(args):
 def writeHistograms(args):
     from ROOT import TFile
     f = TFile(args.output, "RECREATE")
-    producePlots(histos, args.suffix)
+    if not args.noplots:
+        producePlots(histos, args.suffix)
     for h in histos.keys():
         histos[h].Write()
     f.Write()
@@ -585,10 +577,15 @@ if __name__ == '__main__':
                         dest='debug_mode',
                         action='store_true',
                         help='Enable debug mode.')
+    parser.add_argument('-N', '--noplots',
+                        dest='noplots',
+                        action='store_true',
+                        default=False,
+                        help='Disable the creation of pngs.')
     parser.add_argument('-S', '--sortIndex',
                         default = 0,
                         nargs = '?',
-                        help = "Index of sorting paramter [only for tracks]:\n %s" % "".join(map(lambda x: "%d=%s,\n"%x, zip([i for i in range(50)], variable2index))),
+                        help = "Index of sorting paramter [only for tracks]:\n %s" % "".join(map(lambda x: "%d=%s,\n"%x, zip([i for i in range(50)], variables))),
                         type = int)
 
     args = parser.parse_args()
