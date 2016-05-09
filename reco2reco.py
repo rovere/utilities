@@ -24,6 +24,7 @@ tracksNew = None # Handle("std::vector<reco::Track>")
 label = None # "generalTracks"
 DELTA_R_CUT = None # 0.01
 DELTA_PT_OVER_PT_CUT = None # 0.1
+DEBUG_SELECTION = ['None', 'Verbose', 'Ordinary', 'Recovery', 'Lost', 'Fake', 'Hits']
 
 variables = ["order", "sample", "eta",
              "phi", "pt", "hits", "phits",
@@ -33,6 +34,9 @@ variables = ["order", "sample", "eta",
              "run", "ls", "event"]
 histos = {}
 Track = namedtuple('Tracks', ' '.join(variables))
+
+def checkDebug(value, category):
+    return (value & (1<<DEBUG_SELECTION.index(category)) == (1<<DEBUG_SELECTION.index(category)))
 
 def decodeHitsFromTrack(track, debug):
     hits = []
@@ -57,13 +61,13 @@ def decodeHitsFromTrack(track, debug):
     return hits
 
 def match(a, b):
-    deltaR = sqrt((a.eta - b.eta)**2 + (a.phi - b.phi)**2)
+    deltaR_squared = (a.eta - b.eta)**2 + (a.phi - b.phi)**2
     deltaPt_over_Pt = abs(a.pt - b.pt)/a.pt
 #    print "DeltaR: %f, DeltaPt_over_Pt: %f" % (
 #        deltaR,
 #        deltaPt_over_Pt
 #        )
-    return (deltaR, deltaPt_over_Pt)
+    return (deltaR_squared, deltaPt_over_Pt)
 
 def producePlots(histos, suffix):
     from ROOT import TCanvas, gStyle
@@ -124,6 +128,12 @@ def compareTwoReco(reference, new, histos, debug=1):
     # Tracks with index False are the ones that have been matched to the comparison track collection
     original_valid = [True for i in reference]
     print " ".join("%10s" % k for k in variables)
+    debug_verbose = checkDebug(debug, 'Verbose')
+    debug_ordinary = checkDebug(debug, 'Ordinary')
+    debug_recovery = checkDebug(debug, 'Recovery')
+    debug_lost = checkDebug(debug, 'Lost')
+    debug_fake = checkDebug(debug, 'Fake')
+
     for original_index, original in enumerate(reference):
         # Fill in cumulative plots for the reference sample first
         histos['reference_hits_vs_algo'].Fill(original.algo, original.hits)
@@ -139,19 +149,19 @@ def compareTwoReco(reference, new, histos, debug=1):
         # Now start to look for a matching track in the comparison track collection
         window_depth = 400 # elements to span to look for best candidate
         iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = -1, 100, 100
-        if debug >=2:
+        if debug_verbose:
             print original
         for i,j in enumerate(new):
             if new_valid[i] == True:
-                if debug >=2:
+                if debug_verbose:
                     print "  ", i, j
                 if window_depth == 0:
                     break
-                dr, dPt_over_pt = match(original, j)
-                if dr < bestDeltaRMatch and dPt_over_pt < DELTA_PT_OVER_PT_CUT:
-                    iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = i, dr, dPt_over_pt
-                if debug >=2:
-                    print "  ", window_depth, iBest, bestDeltaRMatch, dr, bestDeltaPt_over_PtMatch, dPt_over_pt
+                dr_squared, dPt_over_pt = match(original, j)
+                if dr_squared < bestDeltaRMatch*bestDeltaRMatch and dPt_over_pt < DELTA_PT_OVER_PT_CUT:
+                    iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = i, dr_squared, dPt_over_pt
+                if debug_verbose:
+                    print "  ", window_depth, iBest, bestDeltaRMatch, dr_squared, bestDeltaPt_over_PtMatch, dPt_over_pt
                 if bestDeltaRMatch <= 0.0001 or bestDeltaPt_over_PtMatch == 0.0001:
                     break
                 window_depth -= 1
@@ -164,7 +174,7 @@ def compareTwoReco(reference, new, histos, debug=1):
             assert original.run == new[iBest].run, "run mismatch"
             assert original.ls == new[iBest].ls, "ls mismatch"
             assert original.event == new[iBest].event, "event mismatch"
-            if debug:
+            if debug_ordinary:
                 print original
                 print new[iBest]
                 print iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch, '\n'
@@ -190,19 +200,19 @@ def compareTwoReco(reference, new, histos, debug=1):
             # Now start to look for a matching track in the comparison track collection
             window_depth = 300 # elements to span to look for best candidate
             iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = -1, 100, 100
-            if debug >=2:
+            if debug_verbose:
                 print "Recovery ", original
             for i,j in enumerate(new):
                 if new_valid[i] == True:
-                    if debug >=2:
+                    if debug_verbose:
                         print "Recovery  ", i, j
                     if window_depth == 0:
                         break
-                    dr, dPt_over_pt = match(original, j)
-                    if dr < bestDeltaRMatch and dPt_over_pt < DELTA_PT_OVER_PT_CUT*6:
-                        iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = i, dr, dPt_over_pt
-                    if debug >=2:
-                        print "Recovery   ", window_depth, iBest, bestDeltaRMatch, dr, bestDeltaPt_over_PtMatch, dPt_over_pt
+                    dr_squared, dPt_over_pt = match(original, j)
+                    if dr_squared < bestDeltaRMatch*bestDeltaRMatch and dPt_over_pt < DELTA_PT_OVER_PT_CUT*6:
+                        iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch = i, dr_squared, dPt_over_pt
+                    if debug_verbose:
+                        print "Recovery   ", window_depth, iBest, bestDeltaRMatch, dr_squared, bestDeltaPt_over_PtMatch, dPt_over_pt
                     if bestDeltaRMatch <= 0.0001 or bestDeltaPt_over_PtMatch == 0.0001:
                         break
                     window_depth -= 1
@@ -212,7 +222,7 @@ def compareTwoReco(reference, new, histos, debug=1):
                 # track collection
                 new_valid[iBest] = False
                 original_valid[original_index] = False
-                if debug:
+                if debug_recovery:
                     print "Recovery ", original
                     print "Recovery ", new[iBest]
                     print "Recovery ", iBest, bestDeltaRMatch, bestDeltaPt_over_PtMatch
@@ -237,7 +247,7 @@ def compareTwoReco(reference, new, histos, debug=1):
     # comparison collection == > LOST TRACKS
     reference_not_assigned = [j for i,j in enumerate(reference) if original_valid[i]]
     reference_not_assigned.sort(key=lambda tr: tr.algo)
-    if debug:
+    if debug_lost:
         print "**** Lost tracks **** %d" % len(reference_not_assigned)
     for j in reference_not_assigned:
             histos['lost_hits_vs_algo'].Fill(j.algo, j.hits)
@@ -246,7 +256,7 @@ def compareTwoReco(reference, new, histos, debug=1):
             histos['lost_eta'].Fill(j.eta)
             if debug:
                 print j
-    if debug:
+    if debug_lost:
         print "**** End of Lost tracks ****"
 
     # Fake Tracks
@@ -267,7 +277,7 @@ def compareTwoReco(reference, new, histos, debug=1):
     # reference collection ==> FAKE TRACKS
     new_not_assigned = [j for i,j in enumerate(new) if new_valid[i]]
     new_not_assigned.sort(key=lambda tr: tr.algo)
-    if debug:
+    if debug_fake:
         print "**** Fake tracks **** %d" % len(new_not_assigned)
     for j in new_not_assigned:
             histos['fake_hits_vs_algo'].Fill(j.algo, j.hits)
@@ -275,7 +285,7 @@ def compareTwoReco(reference, new, histos, debug=1):
             histos['fake_hits_vs_pt'].Fill(j.pt, j.hits)
             if debug:
                 print j
-    if debug:
+    if debug_fake:
         print "**** End of Fake tracks ****"
 
 def bookHistograms():
@@ -399,6 +409,7 @@ def runComparison(args):
     # indices in the 2 input files.
     index_reference = {}
     index_new = {}
+    debug_hits = checkDebug(args.debug_mode, 'Hits')
     for i in range(0, eventsRef.size()):
       eventsRef.to(i)
       run = eventsRef.eventAuxiliary().run()
@@ -429,7 +440,7 @@ def runComparison(args):
                                    track.hitPattern().numberOfValidPixelHits(), track.ndof(),
                                    track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
                                    track.quality(track.qualityByName("highPurity")),
-                                   decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+                                   decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
               else:
                   print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
@@ -438,7 +449,7 @@ def runComparison(args):
                                     track.hitPattern().numberOfValidPixelHits(), track.ndof(),
                                     track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
                                     track.quality(track.qualityByName("highPurity")),
-                                    decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+                                    decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
       index = None
       if (run, ls, event_number) in index_new.keys():
           index = index_new[(run, ls, event_number)]
@@ -458,7 +469,7 @@ def runComparison(args):
                                         track.hitPattern().numberOfValidPixelHits(), track.ndof(),
                                         track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
                                         track.quality(track.qualityByName("highPurity")),
-                                        decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+                                        decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
               else:
                   print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "new", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
@@ -467,11 +478,11 @@ def runComparison(args):
                                     track.hitPattern().numberOfValidPixelHits(), track.ndof(),
                                     track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
                                     track.quality(track.qualityByName("highPurity")),
-                                    decodeHitsFromTrack(track, args.debug_mode), run, ls, event_number))
+                                    decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
       sort_index = args.sortIndex if args.sortIndex else 0        
       a = trValOri.sort(key=lambda tr: tr[sort_index])
       a = trValNew.sort(key=lambda tr: tr[sort_index])
-      compareTwoReco(trValOri, trValNew, histos)
+      compareTwoReco(trValOri, trValNew, histos, debug=args.debug_mode)
 
     # Pt
     histos.setdefault('eff', histos['num'].Clone("Efficiency_pt")).SetTitle('Efficiency_pt')
@@ -575,8 +586,9 @@ if __name__ == '__main__':
                         help='Enable batch mode for ROOT.')
     parser.add_argument('-D', '--Debug',
                         dest='debug_mode',
-                        action='store_true',
-                        help='Enable debug mode.')
+                        type=lambda value: sum([1<<int(i) for i in value.split('+')]),
+                        default='0',
+                        help='Enable debug mode. Debug modes are identified by bits: %s' % ' '.join(["(%d:%s) " % (k, v) for k,v in enumerate(DEBUG_SELECTION)]) + '\nCategories can be combined with the syntax "2+3", which will enable debug messages corresponding to categories 2 and 3.')
     parser.add_argument('-N', '--noplots',
                         dest='noplots',
                         action='store_true',
