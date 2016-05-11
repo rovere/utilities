@@ -435,12 +435,12 @@ def runComparison(args):
       for track in tracksRef.product():
           if args.quality:
               if (track.quality(track.qualityByName(args.quality))) :
-                  trValOri.append((10*int(100*track.eta())+track.phi(), "ori",
-                                   track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() ,
-                                   track.hitPattern().numberOfValidPixelHits(), track.ndof(),
-                                   track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
-                                   track.quality(track.qualityByName("highPurity")),
-                                   decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
+                  trValOri.append(Track(10*int(100*track.eta())+track.phi(), "ori",
+                                        track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() ,
+                                        track.hitPattern().numberOfValidPixelHits(), track.ndof(),
+                                        track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4,
+                                        track.quality(track.qualityByName("highPurity")),
+                                        decodeHitsFromTrack(track, debug_hits), run, ls, event_number))
               else:
                   print 'Ignoring non-highquality track: ', 10*int(100*track.eta())+track.phi(), "ori", track.eta(), track.phi(), track.pt(),  track.numberOfValidHits() , track.hitPattern().numberOfValidPixelHits(), track.ndof(), track.chi2(), track.algoMask().to_string(), track.algo()-4, track.originalAlgo()-4, track.quality(track.qualityByName("highPurity"))
           else:
