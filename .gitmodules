@@ -1,0 +1,3 @@
+[submodule "stgit"]
+	path = stgit
+	url = git://repo.or.cz/stgit.git
