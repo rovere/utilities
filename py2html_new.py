@@ -7,19 +7,22 @@ import sys, os
 import sqlite3
 import FWCore.ParameterSet.Config as cms
 import locale
+import argparse
 
 locale.setlocale(locale.LC_ALL, 'en_US')
 
-class visitor:
-    def __init__(self, out, process, ignore_igprof):
+class Visitor:
+    def __init__(self, out, process, steps, prefix, ignore_igprof):
         self.out = out
         self.process_ = process
+        self.prefix_ = prefix
         self.ignore_igprof_ = ignore_igprof
         self.env = os.getenv('CMSSW_RELEASE_BASE')
         self.t = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
         self.level_ = 0
         self.level = {}
         self.level[self.level_] = 0
+        self.steps_ = steps
 
     def reset(self):
         self.t = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
@@ -83,7 +86,7 @@ class visitor:
         link = ''
         counter = 0
         t = {}
-        for step in steps:
+        for step in self.steps_:
           toCheck = step
           if toCheck == 'ctor':
             toCheck = type_()
@@ -106,8 +109,8 @@ class visitor:
                                                                                  prettyInt(t[4]), \
                                                                                  prettyFloat((t[0]+t[1]+t[2]+t[3]+t[4])/1024./1024.))
         link = '<a href=http://cmssdt.cern.ch/SDT/lxr/ident?_i=' + type_() + '&_remember=1>' + type_() + '</a> ' + stats + '\n'
-        out.write(link + ', label <a href=' + lbl_() + '.html>' + lbl_() +'</a>, defined in ' + filename_ + '</li>\n')
-        tmpout = open('./html/'+lbl_() + '.html','w')
+        self.out.write(link + ', label <a href=' + lbl_() + '.html>' + lbl_() +'</a>, defined in ' + filename_ + '</li>\n')
+        tmpout = open(os.path.join(self.prefix_, 'html/', lbl_() + '.html'), 'w')
         tmpout.write(preamble())
         tmpout.write( '<pre>\n')
         gg = dumpConfig_()
@@ -178,7 +181,7 @@ def checkRel():
         print 'You must set a proper CMSSW environment first. Quitting.'
         sys.exit(1)
 
-def dumpESProducer(value, ignore_igprof):
+def dumpESProducer(value, out, steps, prefix, ignore_igprof):
     type_ = getattr(value, 'type_', 'Not Available')
     filename_ = getattr(value, '_filename', 'Not Available')
     lbl_ = getattr(value, 'label_', 'Not Available')
@@ -210,7 +213,7 @@ def dumpESProducer(value, ignore_igprof):
                                          prettyFloat((t[0]+t[1]+t[2]+t[3]+t[4])/1024./1024.))
     link = '<a href=http://cmssdt.cern.ch/SDT/lxr/ident?_i=' + type_() + '&_remember=1>' + type_() + '</a> ' + stats + '\n'
     out.write('<ol><li>'+link + ', label <a href=' + lbl_() + '.html>' + lbl_() +'</a>, defined in ' + filename_ + '</li></ol>\n')
-    tmpout = open('./html/'+lbl_() + '.html','w')
+    tmpout = open(os.path.join(prefix, 'html', lbl_() + '.html'), 'w')
     tmpout.write(preamble())
     tmpout.write( '<pre>\n')
     cutAtColumn = 978
@@ -228,36 +231,6 @@ def dumpESProducer(value, ignore_igprof):
     tmpout.close()
     return t
 
-# Check argument list
-ignore_igprof = True
-if len(sys.argv) < 3:
-    print 'Warning.\nNo igprof_report supplied, setting all numbers to 0.'
-else:
-    ignore_igprof = False
-
-toload = sys.argv[1]
-toload = re.sub('\.py', '', toload)
-towrite = 'index.html'
-
-if not ignore_igprof:
-    conn = sqlite3.connect(sys.argv[2])
-
-steps = ('ctor', 'beginJob', 'beginRun', 'beginLuminosityBlock', 'analyze')
-pwd = os.getenv('PWD') +'/'
-sys.path.append(pwd)
-checkRel()
-
-print "Trying to load", toload
-try:
-    a = __import__(str(toload))
-except:
-    print 'Import Failed, quitting...'
-    sys.exit(1)
-
-if not os.path.exists(pwd+'html'):
-    os.mkdir(pwd+'html')
-out = open('./html/'+towrite,'w')
-
 # Main starts here.
 
 # Check if the supplied configuration file has a process defined in
@@ -266,41 +239,71 @@ out = open('./html/'+towrite,'w')
 # file, with a DUMMY process and load the file under investigation on
 # top of it.
 
-try:
-    print a.process.process
-except:
-    print 'No process defined in the supplied configuration file: creating a DUMMY one'
-    cmsswBase = os.getenv('CMSSW_BASE')
-    tmpFile = open('dummy.py','w')
-    tmpFile.write("import FWCore.ParameterSet.Config as cms\n")
-    tmpFile.write("process = cms.Process('FAKE')\n\n")
-    pythonLibToLoad = (pwd + sys.argv[1]).replace(cmsswBase,'').replace('/src/','').replace('/', '.').replace('.python','').replace('.py','')
-    tmpFile.write("process.load('" + pythonLibToLoad + "')")
-    tmpFile.close()
-    a = __import__('dummy')
-    os.unlink('dummy.py')
-    os.unlink('dummy.pyc')
+def main(args):
+  towrite = 'index.html'
 
-out.write(preamble())
-out.write( '<h1>Paths</h1><ol>\n')
-v = visitor(out, a.process, ignore_igprof)
-for k in a.process.paths.keys():
-    out.write('<li class="Path">%s</li>\n' % k)
-    a.process.paths[k].visit(v)
-    v.reset()
+  if not args.ignore_igprof:
+      conn = sqlite3.connect(sys.argv[2])
 
-out.write( '</ol><h1>End Paths</h1>\n')
-v.reset()
+  steps = ('ctor', 'beginJob', 'beginRun', 'beginLuminosityBlock', 'analyze')
+  pwd = os.getenv('PWD') +'/'
+  sys.path.append(pwd)
+  checkRel()
 
-for k in a.process.endpaths.keys():
-    out.write('<H2>%s</H2>\n' % k)
-    a.process.endpaths[k].visit(v)
-    v.reset()
+  try:
+      a = __import__(str(re.sub('\.py', '', args.input_cfg)))
+  except:
+      print 'Import Failed, quitting...'
+      sys.exit(1)
 
-out.write( '<h1>ES Producers</h1>\n')
-for k in a.process.es_producers_().keys():
-    out.write('<H2>%s</H2>\n' % k)
-    dumpESProducer(a.process.es_producers[k], ignore_igprof)
+  if not os.path.exists(os.path.join(args.output,'html')):
+      os.makedirs(os.path.join(args.output,'html'))
+  out = open(os.path.join(args.output, 'html/') + towrite,'w')
 
-out.write(endDocument())
+  try:
+      print a.process.process
+  except:
+      print 'No process defined in the supplied configuration file: creating a DUMMY one'
+      cmsswBase = os.getenv('CMSSW_BASE')
+      tmpFile = open('dummy.py','w')
+      tmpFile.write("import FWCore.ParameterSet.Config as cms\n")
+      tmpFile.write("process = cms.Process('FAKE')\n\n")
+      pythonLibToLoad = (pwd + args.input_cfg).replace(cmsswBase,'').replace('/src/','').replace('/', '.').replace('.python','').replace('.py','')
+      tmpFile.write("process.load('" + pythonLibToLoad + "')")
+      tmpFile.close()
+      a = __import__('dummy')
+      os.unlink('dummy.py')
+      os.unlink('dummy.pyc')
 
+  out.write(preamble())
+  out.write( '<h1>Paths</h1><ol>\n')
+  v = Visitor(out, a.process, steps, args.output, args.ignore_igprof)
+  for k in a.process.paths.keys():
+      out.write('<li class="Path">%s</li>\n' % k)
+      a.process.paths[k].visit(v)
+      v.reset()
+
+  out.write( '</ol><h1>End Paths</h1>\n')
+  v.reset()
+
+  for k in a.process.endpaths.keys():
+      out.write('<H2>%s</H2>\n' % k)
+      a.process.endpaths[k].visit(v)
+      v.reset()
+
+  out.write( '<h1>ES Producers</h1>\n')
+  for k in a.process.es_producers_().keys():
+      out.write('<H2>%s</H2>\n' % k)
+      dumpESProducer(a.process.es_producers[k], out, steps, args.output, args.ignore_igprof)
+
+  out.write(endDocument())
+
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-i', '--input_cfg', required=True, default='', type=str, help='Input cfg to parse')
+  parser.add_argument('-o', '--output', required=True, default='./html', type=str, help='Output directory where to store the fully expanded, html-ize configuration')
+  parser.add_argument('--ignore_igprof', required=False, default=True, help='Ignore igprof results in assembling the expanded configuration.')
+
+  args = parser.parse_args()
+  main(args)
