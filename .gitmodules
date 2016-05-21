@@ -1,3 +1,6 @@
 [submodule "stgit"]
 	path = stgit
 	url = git://repo.or.cz/stgit.git
+[submodule "pythonds"]
+	path = pythonds
+	url = git@github.com:rovere/pythonds.git
