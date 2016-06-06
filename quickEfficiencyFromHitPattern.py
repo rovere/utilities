@@ -38,11 +38,18 @@ def getNumberOfGoodVertices(pv_h):
    good_vertices += 1
  return good_vertices
 
-def explicitRange(input_list):
+def explicitRange(input_list, bunch_to_train=None):
+    print input_list
     result = []
     for l in input_list:
-        if re.match('\d+-\d+', l):
-            result.extend([i for i in xrange(int(l.split('-')[0]),int(l.split('-')[-1]) + 1)])
+        m = re.match('(?P<MIN>\d+)-(?P<MAX>\d+)', l)
+        if m is not None:
+            result.extend([i for i in xrange(int(m.groupdict()['MIN']),
+                                             int(m.groupdict()['MAX']) + 1)])
+            if bunch_to_train is not None:
+                for i in xrange(int(m.groupdict()['MIN']),
+                                int(m.groupdict()['MAX']) + 1):
+                    bunch_to_train[i] = int(m.groupdict()['MIN'])
         else:
             result.append(int(l))
     return result
@@ -55,14 +62,21 @@ def main(args):
         x_axis_definition = [4000, -0.5, 3999.5]
     numerical_lumi = []
     numerical_bn = []
+    bunch_to_train = [0 for x in range(4000)]
     # In case the user specified LS using the range syntax X-Y, extend it in the form X, X+1, ..., Y.
     if args.lumi:
         numerical_lumi.extend(explicitRange(args.lumi))
     # Same range extension for the BX number
     if args.bn:
         numerical_bn.extend(explicitRange(args.bn))
+    if args.alltrainsaverage:
+        numerical_bn.extend(explicitRange(args.alltrainsaverage, bunch_to_train))
+    if args.alltrains:
+        numerical_bn.extend([i for i in range(0,4000)])
+
     print "\nSelecting LS: ", numerical_lumi
     print "\nSelecting BN: ", numerical_bn
+    print "\nBunch to Train: ", bunch_to_train
 
     f = TFile(args.output, "RECREATE")
     tracks_h = Handle("std::vector<reco::Track>")
@@ -153,7 +167,7 @@ def main(args):
          if args.lumi:
              if not events.eventAuxiliary().luminosityBlock() in numerical_lumi:
                  continue
-         if args.bn  and not events.eventAuxiliary().bunchCrossing() in numerical_bn:
+         if len(numerical_bn) !=0  and not events.eventAuxiliary().bunchCrossing() in numerical_bn:
              continue
          a = events.getByLabel("generalTracks", tracks_h)
          a = events.getByLabel("offlinePrimaryVertices", pv_h)
@@ -192,6 +206,10 @@ def main(args):
             name = d+sd
             if args.overwrite:
                 good_vertices = args.overwrite
+            if args.alltrainsaverage is not None:
+                good_vertices = bunch_to_train[events.eventAuxiliary().bunchCrossing()]
+            if args.alltrains:
+                good_vertices = events.eventAuxiliary().bunchCrossing()
             if abs(t.eta()) < 1.4:
                 if name in histograms_barrel.keys():
                     histograms_barrel[name][hit_type].Fill(good_vertices)
@@ -200,20 +218,7 @@ def main(args):
                     histograms_endcap[name][hit_type].Fill(good_vertices)
 
             if name in histograms.keys():
-                # If the user asked to compute the efficiency only for
-                # the missing hits belonging to the traker_hits
-                # category (0), then we are going to stop at the
-                # last-but-one hit of the corresponding hit-pattern,
-                # so that we are always guarenteed that another valid
-                # hit is present. The last hit of the tracker_hit
-                # category, in fact, cannot be of the missing type.
-                if args.hitcategory and len(args.hitcategory) == 1 and args.hitcategory[0] == 0 and hit == hp.numberOfHits(category) - 1:
-                    if not category in args.hitcategory:
-                        continue
-                    if args.debug:
-                        print "Omitting this hit for hit-efficiency purposes"
-                        printPattern(hit, category, d, sd, hp, pattern)
-                    continue
+                # We don't do any selection on any category other than missing!
                 if hit_type != 1:
                     histograms[name][hit_type].Fill(good_vertices)
                 else:
@@ -240,14 +245,14 @@ def main(args):
 
 # Some sanity-checks about what the users want us to do.
 def checkArgs(args):
-    if args.bxaxis and not args.overwrite:
+    if args.bxaxis and args.overwrite is None:
         raise ValueError('Error, you must configure the overwrite parameter together with the bxaxis option. Quitting.')
 
 if __name__ == '__main__':
       parser = argparse.ArgumentParser(description='Quick Efficiency from HitPattern.',
                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
       parser.add_argument('-i', '--input',
-                          help='Input files to be used to extract information to produce the ntuple. Usually it must contain the RECO datatier. This option has the precedence on the -e/--eosdir one if both are specified.',
+                          help='Input files to be used. Usually it must contain the RECO datatier. This option has the precedence on the -e/--eosdir one if both are specified.',
                           type=str,
                           nargs='+',
                           required=False)
@@ -280,7 +285,15 @@ if __name__ == '__main__':
                           type=int,
                           required=True)
       parser.add_argument('-c', '--hitcategory',
-                          help='Hit categories that should be considered to fill the *MISSING* plots. 0: track_hits, 1: missing_inner_hits, 2: missing_outer_hits. Multiple selection is allowed: each category must be comma-separated.',
+                          help=""" Hit categories that should be considered to fill the *MISSING*
+                          plots.
+
+                          0: track_hits,
+                          1: missing_inner_hits,
+                          2: missing_outer_hits.
+
+                          Multiple selection is allowed: each category
+                          must be comma-separated.  """,
                           nargs='+',
                           type=int)
       parser.add_argument('-v', '--overwrite',
@@ -290,6 +303,29 @@ if __name__ == '__main__':
                           help='Turn the X-Axis into BX and not number of vertices. It must be used together with the -v option, otherwise it makes no sense.',
                           default=False,
                           action = 'store_true')
+      parser.add_argument('-t', '--alltrainsaverage',
+                          nargs='+',
+                          help=""" Select simultaneously all bx in all trains in one go and produce
+                          averages over consecutives bunches.
+
+                          Add the possibility for the user to run on
+                          all trains in one go. The intervals of the
+                          trains must be supplied in the form of a
+                          space-separated ranges, where each range
+                          represent the first and last bunch within a
+                          train (e.g. 1-7 100-172 ... X-Y). The first
+                          entry of each sub-list is used as x-value
+                          for its corresponding train. The ranges are
+                          also internally fully expanded to be able to
+                          select the correct BX while processing a
+                          reco file. """,
+                          type=str,
+                          required=False)
+      parser.add_argument('-a', '--alltrains',
+                          help=""" Select simultaneously all bx in all trains in one go.
+                          """,
+                          action = 'store_true',
+                          required=False)
       args = parser.parse_args()
       checkArgs(args)
       main(args)
