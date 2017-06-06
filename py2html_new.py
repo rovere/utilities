@@ -10,6 +10,7 @@ import locale
 import argparse
 
 locale.setlocale(locale.LC_ALL, 'en_US')
+numLabel = 0
 
 class Visitor:
     def __init__(self, out, process, steps, prefix, ignore_igprof):
@@ -30,9 +31,16 @@ class Visitor:
     def enter(self, value):
         if type(value) == cms.Sequence:
             if (value.hasLabel_()):
-                self.out.write('<ol><li class=sequence>%s</li>\n' % value.label_())
+                self.out.write('<ol><li class=sequence>Sequence %s</li>\n' % value.label_())
             else:
-                self.out.write('<ol><li class=sequence>%s</li>\n' % '--No label found--')
+                self.out.write('<ol><li class=sequence>Sequence %s</li>\n' % '--w/o label found--')
+            self.level_ +=1
+            self.level[self.level_] = 0
+        elif type(value) == cms.Task:
+            if (value.hasLabel_()):
+                self.out.write('<ol><li class=task>Task %s</li>\n' % value.label_())
+            else:
+                self.out.write('<ol><li class=task>Task %s</li>\n' % '--w/o label found--')
             self.level_ +=1
             self.level[self.level_] = 0
         else:
@@ -47,7 +55,7 @@ class Visitor:
                 self.t[i] += int(mem[i])
                 self.level[self.level_] += int(mem[i])
     def leave(self, value):
-        if type(value) == cms.Sequence:
+        if type(value) == cms.Sequence or type(value) == cms.Task:
             if value.hasLabel_():
                 self.out.write('<span style="color:#000000">(%s, %s, %s, %s, %s) %f [%f] - %s </span>' % (prettyInt(self.t[0]),\
                                                                   prettyInt(self.t[1]),\
@@ -79,9 +87,16 @@ class Visitor:
         return 'Not_Available'
 
     def dumpProducerOrFilter(self, value):
+        global numLabel
         type_ = getattr(value, 'type_', self.fake)
         filename_ = getattr(value, '_filename', self.fake())
         lbl_ = getattr(value, 'label_', self.fake)
+        label_ = "Unknown"
+        try:
+          label_ = lbl_()
+        except:
+          label_ += "%d" % numLabel
+          numLabel += 1
         dumpConfig_ = getattr(value, 'dumpConfig', self.fake)
         link = ''
         counter = 0
@@ -109,8 +124,8 @@ class Visitor:
                                                                                  prettyInt(t[4]), \
                                                                                  prettyFloat((t[0]+t[1]+t[2]+t[3]+t[4])/1024./1024.))
         link = '<a href=http://cmssdt.cern.ch/SDT/lxr/ident?_i=' + type_() + '&_remember=1>' + type_() + '</a> ' + stats + '\n'
-        self.out.write(link + ', label <a href=' + lbl_() + '.html>' + lbl_() +'</a>, defined in ' + filename_ + '</li>\n')
-        tmpout = open(os.path.join(self.prefix_, 'html/', lbl_() + '.html'), 'w')
+        self.out.write(link + ', label <a href=' + label_ + '.html>' + label_ +'</a>, defined in ' + filename_ + '</li>\n')
+        tmpout = open(os.path.join(self.prefix_, 'html/', label_ + '.html'), 'w')
         tmpout.write(preamble())
         tmpout.write( '<pre>\n')
         gg = dumpConfig_()
@@ -158,8 +173,12 @@ def preamble():
   .sequence {
    font-weight: bold;
   }
+  .task {
+   font-weight: bold;
+  }
   li.Path       {font-style:bold;   color: #03C;}
-  li.Sequence   {font-style:bold;   color: #09F;}
+  li.sequence   {font-style:bold;   color: #09F;}
+  li.task       {font-style:bold;   color: #FF6666;}
   li.EDProducer {font-style:italic; color: #a80000;}
   li.EDFilter   {font-style:italic; color: #F90;}
   li.EDAnalyzer {font-style:italic; color: #360;}
@@ -279,7 +298,7 @@ def main(args):
   out.write( '<h1>Paths</h1><ol>\n')
   v = Visitor(out, a.process, steps, args.output, args.ignore_igprof)
   for k in a.process.paths.keys():
-      out.write('<li class="Path">%s</li>\n' % k)
+      out.write('<li class="Path">Path %s</li>\n' % k)
       a.process.paths[k].visit(v)
       v.reset()
 
@@ -287,13 +306,13 @@ def main(args):
   v.reset()
 
   for k in a.process.endpaths.keys():
-      out.write('<H2>%s</H2>\n' % k)
+      out.write('<H2>EndPath %s</H2>\n' % k)
       a.process.endpaths[k].visit(v)
       v.reset()
 
   out.write( '<h1>ES Producers</h1>\n')
   for k in a.process.es_producers_().keys():
-      out.write('<H2>%s</H2>\n' % k)
+      out.write('<H2>ESProducer %s</H2>\n' % k)
       dumpESProducer(a.process.es_producers[k], out, steps, args.output, args.ignore_igprof)
 
   out.write(endDocument())

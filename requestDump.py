@@ -55,34 +55,34 @@ def myumask():
 def request_init(c, options, server, request, task):
   """`RequestManager` callback to initialise URL of the connection."""
 
-  print server + ((server[-1] != "/" and "/") or "") + urllib.quote(request)
-  c.setopt(pycurl.URL, server + ((server[-1] != "/" and "/") or "") + urllib.quote(request))
+  print server + urllib.quote(request)
+  c.setopt(pycurl.URL, server + urllib.quote(request))
 
 def parse_request_and_tasks(c):
   options, server, request, task = c.task
-  reply = c.buffer.getvalue()
-  reply_new = reply.replace("'", '"').replace(" None", ' "NULL"').replace(' True', ' "TRUE"').replace(' False', ' "FALSE"').replace('""', '"')
+  reply_new = c.buffer.getvalue()
   m = re.match('.*reqmgr_config_cache/(.*)', server)
   if m:
     o = open("%s_%s.py" % (task, m.group(1)), 'w')
-    o.write(reply)
+    o.write(reply_new)
 #  print reply
   else:
     reply_new = cjson.decode(reply_new)
     o = open("%s.json" % request, 'w')
     pp = pprint.PrettyPrinter(indent=4, stream=o)
-    pp.pprint(reply_new)
-    print reply_new
+#    pp.pprint(reply_new)
     for i in xrange(10):
-      if "Task%d" % i in reply_new.keys():
+#      print reply_new['result'][0][request]
+      if "Task%d" % i in reply_new['result'][0][request].keys():
         print "Analyzing task %d" %i
-        reqman.put((options, 'https://cmsweb.cern.ch/couchdb/reqmgr_config_cache/%s' % reply_new["Task%d" % i]['ConfigCacheID'], 'configFile', "Task%d" % i))
+        print  'https://cmsweb.cern.ch/couchdb/reqmgr_config_cache/%s' % reply_new['result'][0][request]["Task%d" % i]['ConfigCacheID']
+        reqman.put((options, 'https://cmsweb.cern.ch/couchdb/reqmgr_config_cache/%s' % reply_new['result'][0][request]["Task%d" % i]['ConfigCacheID'], '/configFile', "Task%d" % i))
 
 # Parse command line options.
 op = OptionParser(usage = __doc__)
 op.add_option("-s", "--server", dest = "server",
               type = "string", action = "store", metavar = "SERVER",
-              default = "https://cmsweb.cern.ch/reqmgr/reqMgr/request/",
+              default = "https://cmsweb.cern.ch/reqmgr2/data/request?name=",
               help = "Pull content from SERVER")
 op.add_option("-n", "--connections", dest = "connections",
               type = "int", action = "store", metavar = "NUM",

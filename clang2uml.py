@@ -3,6 +3,7 @@
 import sys, os, re
 import clang.cindex
 import clang.enumerations
+import argparse
 from re import match
 
 access_specifiers = ["", "public", "protected", "private"]
@@ -11,6 +12,7 @@ access_specifiers_UML = ["", "+", "#", "-"]
 def verbose(*args, **kwargs):
     '''filter predicate for show_ast: show all'''
     return True
+
 def no_system_includes(cursor, level):
     '''filter predicate for show_ast: filter out verbose stuff from system include files'''
     return True
@@ -134,6 +136,7 @@ authorized_decl = [
     "FUNCTION_TEMPLATE",
     "TYPE_ALIAS_DECL",
     "TYPEDEF_DECL",
+    "TYPE_REF",
     "NAMESPACE",
     "STRUCT_DECL",
     "TRANSLATION_UNIT",
@@ -163,6 +166,7 @@ def mangle_type(type):
 def show_ast(cursor, filter_pred=verbose, level=Level(), inherited_attributes={}):
     '''pretty print cursor AST'''
     if filter_pred(cursor, level):
+        print str(dir(cursor)), cursor
         type = str(cursor.kind).split(".")[-1]
         level1 = level+1
 #        if type not in authorized_decl:
@@ -192,7 +196,8 @@ def show_ast(cursor, filter_pred=verbose, level=Level(), inherited_attributes={}
         level.close(type)
 
 def getTypeFromCursor(cursor):
-        return str(cursor.kind).split(".")[-1]
+    print "CK ", str(cursor.kind)
+    return str(cursor.kind).split(".")[-1]
 
 def computeBaseClass(cursor):
     for c in cursor.get_children():
@@ -222,7 +227,7 @@ def getTemplateParameters(cursor, a_class):
 def analyseClass(cursor, a_class, access, indent=""):
     type = getTypeFromCursor(cursor)
     config = clang.cindex.Config()
-    variable_type = 'int'
+#    variable_type = 'int'
     if type not in authorized_decl:
         return
     if type == "CLASS_TEMPLATE":
@@ -276,14 +281,14 @@ def look_ast_for_classes(cursor, classes, filter_pred=verbose, level=0):
             base_class = computeBaseClass(cursor)
             a_class['classname'] = cursor.displayname
             a_class['derived_from'] = base_class if base_class else ''
-            for c in cursor.get_children():            
+            for c in cursor.get_children():
                 analyseClass(c, a_class, "+", indent="  ")
             classes.append(a_class)
         else:
             for c in cursor.get_children():
                 look_ast_for_classes(c, classes, no_system_includes, level)
 
-def class_to_UML(a_class):
+def class_to_UML(a_class, args):
     # Avoid saving forward declared classes
     if not len(a_class.get('methods', [])) and not len(a_class.get('members', [])) and not len(a_class.get('enums', [])) and not len(a_class.get('typedefs', [])):
         return
@@ -322,21 +327,130 @@ def class_to_UML(a_class):
         f.write('}\n')
     f.write('@enduml\n')
     f.close()
-    
+
+def class_to_LatexUML(a_class, args):
+    if args.verbose:
+        print("Analyzing class %s" % a_class['classname'])
+
+    # Avoid saving forward declared classes
+    if len(a_class.get('methods', [])) == 0 and len(a_class.get('members', [])) == 0 and len(a_class.get('enums', [])) == 0 and len(a_class.get('typedefs', [])) == 0:
+        if args.verbose:
+            print("Forward class declaration, skipping.")
+        return
+    output_filename = ''
+    if a_class['derived_from'] != '':
+        output_filename = '%s_%s.tex' % (a_class['classname'], a_class['derived_from'].lstrip())
+    else:
+        output_filename = '%s.tex' % (a_class['classname'])
+    f = open(output_filename, 'w')
+    f.write('\\begin{tikzpicture}\n\\begin{umlpackage}{%s}\n\\umlclass{%s}\n' % (args.package, args.classname))
+
+    # Member & Typedefs & enum
+    f.write('{\n')
+    for m in a_class.get('members',[]):
+        f.write('%s %s : %s \\\\ \n' % (m['access'],
+                                        formatForLatex(m['displayname']),
+                                        formatForLatex(m['type'])))
+    for m in a_class.get('typedefs',[]):
+        mm = re.match('.*(type-parameter-\d+-\d+)', m['old'])
+        if args.verbose:
+            print m['old']
+        if mm:
+            m['old'] = m['old'].replace(mm.group(1), a_class['%s' % mm.group(1)])
+            if args.verbose:
+                print m['old'], m['alias']
+#        f.write('+ typedef %s %s\n' % (m['old'], m['alias']))
+    # for e in a_class.get('enums',[]):
+    #     f.write('enum %s {\n' % (e['name']))
+    #     for v in e['values']:
+    #         f.write('%s\n' % v)
+    #     f.write('}\n')
+    # f.write('@enduml\n')
+    f.write('}\n')
+    # Methods
+    f.write('{\n')
+    for m in a_class.get('methods',[]):
+        method = re.sub('\s+', ' ', m['displayname'].strip())
+        if len(m['displayname']) > 35:
+            ret = ''
+            a = m['displayname'].split(' ')
+            current = 0
+            for item in a:
+                if current > 35 and len(item) > 3:
+                    current = 0
+                    ret += '%s\\\\ \n' % ( '}' if (m['isVirtual'] or m['isPureVirtual']) else '')
+                    ret += '\\hspace{3cm}%s' % ('\\umlvirt{' if (m['isVirtual'] or m['isPureVirtual']) else '')
+                else:
+                    current += len(item) + 1
+                ret += ' ' + item
+            method = ret
+        
+        f.write('%s %s %s %s %s %s\\\\ \n' % (m['access'],
+                                              '\umlvirt{' if (m['isVirtual'] or m['isPureVirtual']) else '' ,
+                                              formatForLatex(m['result']), formatForLatex(method),
+                                              ' = 0' if m['isPureVirtual'] else '',
+                                              '}'  if (m['isVirtual'] or m['isPureVirtual']) else ''))
+    f.write('}\n')
+    f.write('\\end{umlpackage}\n\\end{tikzpicture}\n')
+    for nested in a_class.get('nested_classes', []):
+        class_to_LatexUML(nested, args)
+    f.close()
+
+def formatForLatex(s):
+    return s.replace('&', '\\&').replace('_', '\\_').replace('<', '$<$').replace('>', '$>$').replace('~', '$\\sim$')
+
+parser = argparse.ArgumentParser(
+    description='Create UMLs diagrams from source code')
+parser.add_argument('-i', '--input',
+                    help='File to be parsed to extract information to create UMLs.',
+                    default='',
+                    type=str,
+                    required=True)
+parser.add_argument('-c', '--classname',
+                    help='RegExp that match the name of the class(es) that has to be translated into UMLs.',
+                    default='.*',
+                    type=str,
+                    required=True)
+parser.add_argument('-p', '--package',
+                    help='The package to assigned to the UMLs diagram.',
+                    default='.*',
+                    type=str,
+                    required=True)
+parser.add_argument('-e', '--engine',
+                    help='Output engine.',
+                    default='tex',
+                    choices = ['tex', 'dot'],
+                    type=str,
+                    required=False)
+parser.add_argument('-v', '--verbose',
+                    help='Be verbose.',
+                    action='store_true',
+                    default=False,
+                    required=False)
+
+engine_imp = {'tex': class_to_LatexUML, 'dot': class_to_UML}
+
 if __name__ == '__main__':
+    args = parser.parse_args()
     index = clang.cindex.Index.create()
-    tu = index.parse(sys.argv[1], ["-xc++",
-                                   "-I%s/src" % os.getenv('LOCALRT', ''),
-                                   "-I%s/src" % os.getenv('CMSSW_RELEASE_BASE', ''),
-                                   "-I%s/include" % os.getenv('SRT_ROOTSYS_SCRAMRTDEL', ''),
-                                   "-I%s/include" % os.getenv('CLHEP_PARAM_PATH', ''),
-                                   "-std=c++11"
-                                   ])
+    tu = index.parse(args.input, ["-xc++",
+                                  "-I%s/src" % os.getenv('LOCALRT', ''),
+                                  "-I%s/src" % os.getenv('CMSSW_RELEASE_BASE', ''),
+                                  "-I%s/include" % os.getenv('SRT_ROOTSYS_SCRAMRTDEL', ''),
+                                  "-I%s/include" % os.getenv('CLHEP_PARAM_PATH', ''),
+                                  "-std=c++11", "-stdlib=libstdc++"
+    ])
 #    print "Generating class UML for %s" % sys.argv[2]
     classes = []
     look_ast_for_classes(tu.cursor, classes, filter_pred=no_system_includes)
     for c in classes:
-        if match(sys.argv[2], c['classname']):
-            class_to_UML(c)
-    if False:
+        if args.verbose:
+            print("Analyzing class %s" % c['classname'])
+        if match(args.classname, c['classname']):
+            engine_imp[args.engine](c, args)
+    if args.verbose:
+        # import asciitree
+        # print asciitree.draw_tree(tu.cursor,
+        #                           lambda n: n.get_children(),
+        #                           lambda n: "%s (%s)" % (n.spelling or n.displayname, str(n.kind).split(".")[1]))
         show_ast(tu.cursor, no_system_includes)

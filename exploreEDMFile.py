@@ -38,19 +38,22 @@ subdet = {'PXB': { 1:'Layer1', 2:'Layer2', 3:'Layer3'},
 EOS_REPO = '/store/group/phys_tracking/rovere/JetHT22Jan/JetHT/crab_JetHT_legacyJan22/150223_172317/0000/'
 # Grab it after some lookups throu type -a eoscms/eos
 EOS_COMMAND = '/afs/cern.ch/project/eos/installation/0.3.84-aquamarine/bin/eos.select'
-HEADER = "(           Idx  'ori'       eta        phi         pt  NVHits  NVPHits ndof       chi2  Algo-4   HP?  OriAlgo-4    LVHitLoc  stopR     key_idx)"
+HEADER = "(           Idx  'ori'       eta        phi         pt  NVHits  NVPHits ndof       chi2  Algo-4   OriAlgo-4  HP?    LVHitLoc  stopR     key_idx)"
 HEADER_VTX = "(  Chi2     ndof     normChi2     fake?   Valid?   NTrks      x            y            z          xE          yE           zE         index)"
 
 def lastValidHitFromHP(hp):
   hit_category = 0 # Tracker hits
   last_valid_hit_location = ''
-  for hit in range(0, hp.numberOfHits(hit_category)):
-    pattern = hp.getHitPattern(hit_category, hit)
-    valid = hp.validHitFilter(pattern)
-    if valid:
-      d = det[hp.getSubStructure(pattern)]
-      sd = subdet[d][hp.getSubSubStructure(pattern)]
-      last_valid_hit_location = d + '_' + sd
+  try:
+    for hit in range(0, hp.numberOfHits(hit_category)):
+      pattern = hp.getHitPattern(hit_category, hit)
+      valid = hp.validHitFilter(pattern)
+      if valid:
+        d = det[hp.getSubStructure(pattern)]
+        sd = subdet[d][hp.getSubSubStructure(pattern)]
+        last_valid_hit_location = d + '_' + sd
+  except:
+    return 'Invalid'
   return last_valid_hit_location
 
 def fillStopReason(histo, hp, stopReason):
@@ -64,8 +67,49 @@ def fillStopReason(histo, hp, stopReason):
       sd = hp.getSubSubStructure(pattern)
       last_valid_hit_location = 10 * d + sd
   histo.Fill(last_valid_hit_location, stopReason)
-  
 
+def printPixelClusters(eventsRef, args):
+  container_kind = "edmNew::DetSetVector<SiPixelCluster>"
+  collection_label = args.pixelcluster if args.pixelcluster else "siPixelClusters"
+  from DataFormats.FWLite import Handle, Events
+  clustersRef = Handle(container_kind)
+  label = collection_label
+  for e in range(eventsRef.size()):
+    a = eventsRef.to(e)
+    a = eventsRef.getByLabel(label, clustersRef)
+    print "Run: %7d, LS: %5d, Event: %14d\n" % (eventsRef.eventAuxiliary().run(),
+                                                eventsRef.eventAuxiliary().luminosityBlock(),
+                                                eventsRef.eventAuxiliary().event())
+    if not clustersRef.isValid():
+      print "Missing collection ", label, container_kind
+      continue
+    for det in clustersRef.product():
+      for cluster in det:
+        print cluster.adc()
+  
+def printSimTrackInformation(eventsRef, args):
+#  printPixelClusters(eventsRef, args)
+  container_kind = "std::vector<SimTrack>"
+  collection_label = args.simtracks if args.simtracks else "g4SimHits"
+  from DataFormats.FWLite import Handle, Events
+  tracksRef = Handle(container_kind)
+  label = collection_label
+  for e in range(eventsRef.size()):
+    a = eventsRef.to(e)
+    a = eventsRef.getByLabel(label, tracksRef)
+    print "Run: %7d, LS: %5d, Event: %14d\n" % (eventsRef.eventAuxiliary().run(),
+                                                eventsRef.eventAuxiliary().luminosityBlock(),
+                                                eventsRef.eventAuxiliary().event())
+    if not tracksRef.isValid():
+      print "Missing collection ", label, container_kind
+      continue
+    for i, track in enumerate(tracksRef.product()):
+      print "%d] %d %f  %f %f" % (i,
+                                  track.type(),
+                                  track.momentum().eta(), track.momentum().phi(),
+                                  track.momentum().pt())
+  
+  
 def printTrackInformation(eventsRef,
                           args):
   container_kind = "std::vector<reco::Track>"
@@ -354,6 +398,8 @@ def main(args):
   for filename in args.filename:
     print "Dumping from file: %s" % filename
     eventsRef = Events("%s" % filename)
+    if args.simtracks:
+      printSimTrackInformation(eventsRef, args)
     if args.tracks:
       printTrackInformation(eventsRef, args)
     if args.vertices:
@@ -410,6 +456,14 @@ if __name__ == '__main__':
   parser.add_argument('-t', '--tracks',
                       nargs = '?',
                       help = 'Print track information for the specified collection label.',
+                      type = str)
+  parser.add_argument('-g', '--simtracks',
+                      nargs = '?',
+                      help = 'Print simtrack information for the specified collection label.',
+                      type = str)
+  parser.add_argument('-p', '--pixelcluster',
+                      nargs = '?',
+                      help = 'Print pixel cluster information for the specified collection label.',
                       type = str)
   parser.add_argument('-v', '--vertices',
                       nargs = '?',

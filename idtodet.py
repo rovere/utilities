@@ -192,4 +192,6 @@ def id2det2String(id):
 if __name__ == '__main__':
   if len(sys.argv) < 2:
     print "Error. Usage %s id\n.Quitting\n" % sys.argv[0]
-  id2det(int(sys.argv[1]))
+  detid = sys.argv[1]
+  numid = int(detid, 16) if detid[:2] == '0x' else int(detid)
+  id2det(numid)

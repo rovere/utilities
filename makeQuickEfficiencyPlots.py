@@ -69,7 +69,7 @@ def main(args):
                 for k in kind:
                     g = f.Get('divide_Hits_ok_%s%s_by_Hits_ok_and_missing_%s%s' % (name, k, name, k))
                     stats[name].append(printTGraphAsymmErrors(g, output_txt))
-                    g.SetMinimum(0.85)
+                    g.SetMinimum(0.3)
                     g.SetMaximum(1.0)
                     g.SetMarkerStyle(kFullCircle)
                     if len(args.input) > 1:
