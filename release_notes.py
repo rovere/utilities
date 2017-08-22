@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import cjson
+import json
 import StringIO
 import pycurl
 import re
@@ -65,7 +65,7 @@ def getReleasesNotes():
   while next_link != last_link:
     c.perform()
 
-    releases = cjson.decode(response.getvalue())
+    releases = json.loads(response.getvalue())
     headers = header.getvalue()
 #    print releases, headers
     for line in headers.split('\n'):
