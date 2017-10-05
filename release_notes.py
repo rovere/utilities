@@ -8,7 +8,7 @@ import fire
 from githubAPI import github_api_token
 
 RX_LINKS = re.compile('^Link: <(.*?)>; rel="next", <(.*?)>; rel="last"')
-RX_RELEASE = re.compile('CMSSW_(\d+)_(\d+)_(\d+)(_pre[0-9]+)*(_cand[0-9]+)*')
+RX_RELEASE = re.compile('CMSSW_(\d+)_(\d+)_(\d+)(_pre[0-9]+)*(_cand[0-9]+)*(_patch[0-9]+)*')
 RX_COMMIT = re.compile(".*\#(\d{0,5})( from.*)")
 RX_SINGLECOMMIT = re.compile(".*cmssw/pull/(\d{0,5})")
 RX_COMPARE = re.compile("(^https://github.*compare.*\.\.\..*)")
@@ -109,7 +109,7 @@ def getReleasesNotes(selected_releases_regexp):
        m = re.match(RX_LINKS, line)
        if m:
           next_link = m.group(1)
-          last_link = m.group(2) 
+          last_link = m.group(2)
           c.setopt(pycurl.URL, next_link)
           print '%s, [%s,%s]' % (line, next_link, last_link)
 
@@ -142,6 +142,7 @@ def getReleasesNotes(selected_releases_regexp):
                       int(rel_numbers.group(3)),
                       rel_numbers.group(4),
                       rel_numbers.group(5),
+                      rel_numbers.group(6),
                       releases[i]['name'],
                       release_notes
                      ])
@@ -151,16 +152,18 @@ def getReleasesNotes(selected_releases_regexp):
     header.seek(0)
     header.truncate()
 
-  current = -1
+  current = ""
   out_rel = None
   notes = sorted(notes, key = lambda x: (x[0], x[1], x[2], x[3], x[4]), reverse=True)
   for r in notes:
-    new_current = int(r[0])*100 + int(r[1])
+    new_current = "{major}_{minor}_{subminor}".format(major=r[0],minor=r[1],subminor=r[2])
+    for i in range(3,6):
+        if r[i]: new_current += "{addendum}".format(addendum=r[i])
     if new_current != current:
       if out_rel:
         out_rel.write(trail())
         out_rel.close()
-      out_rel = open("ReleaseNotes_%s_%s.html" % (r[0], r[1]), "w")
+      out_rel = open("ReleaseNotes_{release}.html".format(release=new_current), 'w')
       current = new_current
       out_rel.write(head())
     try:
