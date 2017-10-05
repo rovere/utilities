@@ -104,7 +104,6 @@ def getReleasesNotes(selected_releases_regexp):
     releases = json.loads(response.getvalue())
     headers = header.getvalue()
     checkRateLimits(headers)
-#    print releases, headers
     for line in headers.split('\n'):
        m = re.match(RX_LINKS, line)
        if m:
@@ -117,8 +116,6 @@ def getReleasesNotes(selected_releases_regexp):
       counter += 1
       rel_numbers = re.match(RX_RELEASE, releases[i]['name'])
       if rel_numbers and re.match(selected_releases_regexp, releases[i]['name']):
-#        print rel_numbers.groups()
-#        print releases[i]
         release_notes = re.sub(RX_COMMIT, '\\n1. [\\1](http://github.com/cms-sw/cmssw/pull/\\1) \\2', releases[i]['body'])
         release_notes = re.sub(RX_COMPARE, '\\1\n\n', release_notes)
         if DEBUG:
@@ -136,7 +133,6 @@ def getReleasesNotes(selected_releases_regexp):
             pr_response.truncate()
             pr_header.seek(0)
             pr_header.truncate()
-#        print release_notes
         notes.append([int(rel_numbers.group(1)),
                       int(rel_numbers.group(2)),
                       int(rel_numbers.group(3)),
@@ -146,7 +142,6 @@ def getReleasesNotes(selected_releases_regexp):
                       releases[i]['name'],
                       release_notes
                      ])
-#        print "%d. %s" % (counter, releases[i]['name'])
     response.seek(0)
     response.truncate()
     header.seek(0)
