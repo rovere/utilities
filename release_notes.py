@@ -6,6 +6,8 @@ import pycurl
 import re
 import fire
 from githubAPI import github_api_token
+from datetime import datetime as dt
+import pytz
 
 RX_LINKS = re.compile('^Link: <(.*?)>; rel="next", <(.*?)>; rel="last"')
 RX_RELEASE = re.compile('CMSSW_(\d+)_(\d+)_(\d+)(_pre[0-9]+)*(_cand[0-9]+)*(_patch[0-9]+)*')
@@ -15,43 +17,14 @@ RX_COMPARE = re.compile("(^https://github.*compare.*\.\.\..*)")
 
 DEBUG = True
 
-def head():
-  head = """<!DOCTYPE html>
-<html>
-<head>
-<title>Release Notes Summary Page</title>
-</head>
-<script type="text/javascript"
-src="https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
-</script>
-
-
-<body>
-<xmp theme="cerulean" style="display:none;">
-
-"""
-  return head
-
-def trail():
-  trail = """
-<p>
-    <div style="text-align: center; width: 146px; margin: 0 auto">
-        <button type="button" class="btn btn-info" onclick="var cur = window.location.href; window.location.href = cur.replace(/(.*)/.*.html$/, '$1/');">Main Minutes Page</button>
-    </div>
-</p>
-
-</xmp>
-
-<!-- <script src="http://strapdownjs.com/v/0.2/strapdown.js"></script> -->
-
-<!-- For internal CERN documents we cannot do x-loads..?? Moreover I
-patched strapdown to be able to manage bootswatch v3.0, so we need to
-use our own local installation. -->
-
-<script src="../strapdown/v/0.2/strapdown.js"></script>
-</body>
-"""
-  return trail
+def head(title):
+    ret = "---\n"
+    ret += "layout: post\n"
+    ret += "title:  {title}\n".format(title=title)
+    ret += "date:   {now}\n".format(now=dt.now(tz=pytz.timezone('Europe/Zurich')).strftime("%Y-%m-%d %H:%M:%S %z"))
+    ret += "categories: jekyll update\n"
+    ret += "---\n\n"
+    return ret
 
 def extractPRnumbers(release_notes):
     prs = [re.match(RX_SINGLECOMMIT, l).group(1) for l in release_notes.split('\n') if re.match(RX_SINGLECOMMIT, l)]
@@ -156,16 +129,14 @@ def getReleasesNotes(selected_releases_regexp):
         if r[i]: new_current += "{addendum}".format(addendum=r[i])
     if new_current != current:
       if out_rel:
-        out_rel.write(trail())
         out_rel.close()
-      out_rel = open("ReleaseNotes_{release}.html".format(release=new_current), 'w')
+      out_rel = open("{date}-ReleaseNotes_{release}.md".format(date=dt.now().strftime('%Y-%m-%d'),release=new_current), 'w')
+      out_rel.write(head(new_current))
       current = new_current
-      out_rel.write(head())
     try:
-      out_rel.write('# %s\n%s' % (r[5].encode('ascii', 'replace'), r[6].encode('ascii', 'replace')))
+      out_rel.write('# %s\n%s' % (r[-2].encode('ascii', 'replace'), r[-1].encode('ascii', 'replace')))
     except:
       pass
-  out_rel.write(trail())
 
 if __name__ == '__main__':
   fire.Fire(getReleasesNotes)
