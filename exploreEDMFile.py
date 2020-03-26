@@ -26,8 +26,8 @@ det = {1:'PXB',
        4:'TID',
        5:'TOB',
        6:'TEC'}
-subdet = {'PXB': { 1:'Layer1', 2:'Layer2', 3:'Layer3'},
-          'PXF': { 1:'Disk1',  2:'Disk2'},
+subdet = {'PXB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4'},
+          'PXF': { 1:'Disk1',  2:'Disk2', 3:'Disk3'},
           'TIB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4'},
           'TID': { 1:'wheel1', 2:'wheel2', 3:'wheel3'},
           'TOB': { 1:'Layer1', 2:'Layer2', 3:'Layer3', 4:'Layer4', 5:'Layer5', 6:'Layer6'},
@@ -55,6 +55,23 @@ def lastValidHitFromHP(hp):
   except:
     return 'Invalid'
   return last_valid_hit_location
+
+def printFullHP(hp):
+  result = ''
+  for hit_category in range(0,3):
+#    hit_category = 0 # Tracker hits
+    last_valid_hit_location = ''
+#    try:
+    for hit in range(0, hp.numberOfHits(hit_category)):
+        pattern = hp.getHitPattern(hit_category, hit)
+        valid = hp.validHitFilter(pattern)
+        d = det[hp.getSubStructure(pattern)]
+        sd = subdet[d][hp.getSubSubStructure(pattern)]
+        hit_location = d + '_' + sd + '_Category_' + str(hit_category) + '_' + str(valid)
+        result += hit_location
+#    except:
+#      return 'Invalid'
+  return result
 
 def fillStopReason(histo, hp, stopReason):
   hit_category = 0 # Tracker hits
@@ -133,7 +150,7 @@ def printTrackInformation(eventsRef,
                       "Stop Reason vs Tracker Component",
                       70, 0.5, 69.5,
                       256, -0.5, 255.5)
-  for e in range(eventsRef.size()):
+  for e in range(573, eventsRef.size()):
     a = eventsRef.to(e)
     a = eventsRef.getByLabel(label, tracksRef)
     print "Run: %7d, LS: %5d, Event: %14d\n" % (eventsRef.eventAuxiliary().run(),
@@ -168,7 +185,8 @@ def printTrackInformation(eventsRef,
                      track.quality(track.qualityByName("highPurity")),
                      lastValidHitFromHP(hp),
                      int(unpack('@B', track.stopReason())[0]) if args.stopReason else 0,
-                     dump_index))
+                     dump_index,
+                     printFullHP(hp)))
           if args.stopReason:
             fillStopReason(stopReason, hp, int(unpack('@B', track.stopReason())[0]))
       if dump_index == dumpHits:
@@ -213,7 +231,7 @@ def printTrackInformation(eventsRef,
           
     tr.sort(key=lambda tr: tr[sort_index])
     for t in tr:
-      print "(%14.8f   %s %10.7f %10.7f %10.7f %7d %8d %4d %10.7f %7d %5d %10d %11s %5d %12d)" % t
+      print "(%14.8f   %s %10.7f %10.7f %10.7f %7d %8d %4d %10.7f %7d %5d %10d %11s %5d %12d %40s)" % t
     print HEADER
   if args.stopReason:
     outfile.cd()
