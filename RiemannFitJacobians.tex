@@ -1,0 +1,103 @@
+\documentclass[8pt]{article}
+\usepackage{amsmath}
+\usepackage[landscape]{geometry}
+\begin{document}
+
+For the case u = a*x + b*y we have a Cov(u):
+\begin{equation}\left[\begin{smallmatrix}V_{xx} a^{2} + 2 V_{xy} a b + V_{yy} b^{2}\end{smallmatrix}\right]\end{equation}
+
+For the case of going from x,y to r,theta(t), using a Rotation
+\begin{equation}\left[\begin{smallmatrix}V_{xx} & V_{xy}\\V_{xy} & V_{yy}\end{smallmatrix}\right]\end{equation}
+
+Rotation Matrix:
+\begin{equation}\left[\begin{smallmatrix}\cos{\left (t \right )} & - \sin{\left (t \right )}\\\sin{\left (t \right )} & \cos{\left (t \right )}\end{smallmatrix}\right]\end{equation}
+
+Final(destination) covariance Matrix:
+\begin{equation}\left[\begin{smallmatrix}V_{xx} \cos^{2}{\left (t \right )} - 2 V_{xy} \sin{\left (t \right )} \cos{\left (t \right )} + V_{yy} \sin^{2}{\left (t \right )} & V_{xx} \sin{\left (t \right )} \cos{\left (t \right )} - V_{xy} \sin^{2}{\left (t \right )} + V_{xy} \cos^{2}{\left (t \right )} - V_{yy} \sin{\left (t \right )} \cos{\left (t \right )}\\V_{xx} \sin{\left (t \right )} \cos{\left (t \right )} - V_{xy} \sin^{2}{\left (t \right )} + V_{xy} \cos^{2}{\left (t \right )} - V_{yy} \sin{\left (t \right )} \cos{\left (t \right )} & V_{xx} \sin^{2}{\left (t \right )} + 2 V_{xy} \sin{\left (t \right )} \cos{\left (t \right )} + V_{yy} \cos^{2}{\left (t \right )}\end{smallmatrix}\right]\end{equation}
+
+
+
+Case of cartesian to polar transformation
+
+Cartesian Variance:
+\begin{equation}\left[\begin{smallmatrix}V_{xx} & V_{xy}\\V_{xy} & V_{yy}\end{smallmatrix}\right]\end{equation}
+
+Jacobian-cart-to-polar:
+\begin{equation}\left[\begin{smallmatrix}\cos{\left (t \right )} & - r \sin{\left (t \right )}\\\sin{\left (t \right )} & r \cos{\left (t \right )}\end{smallmatrix}\right]\end{equation}
+
+Polar Variance:
+\begin{equation}\left[\begin{smallmatrix}V_{xx} \cos^{2}{\left (t \right )} - V_{xy} r \sin{\left (t \right )} \cos{\left (t \right )} + V_{xy} \sin{\left (t \right )} \cos{\left (t \right )} - V_{yy} r \sin^{2}{\left (t \right )} & - V_{xx} r \sin{\left (t \right )} \cos{\left (t \right )} + V_{xy} r^{2} \sin^{2}{\left (t \right )} + V_{xy} r \cos^{2}{\left (t \right )} - V_{yy} r^{2} \sin{\left (t \right )} \cos{\left (t \right )}\\V_{xx} \sin{\left (t \right )} \cos{\left (t \right )} + V_{xy} r \cos^{2}{\left (t \right )} + V_{xy} \sin^{2}{\left (t \right )} + V_{yy} r \sin{\left (t \right )} \cos{\left (t \right )} & - V_{xx} r \sin^{2}{\left (t \right )} - V_{xy} r^{2} \sin{\left (t \right )} \cos{\left (t \right )} + V_{xy} r \sin{\left (t \right )} \cos{\left (t \right )} + V_{yy} r^{2} \cos^{2}{\left (t \right )}\end{smallmatrix}\right]\end{equation}
+
+
+
+Case of polar to cartesian transformation
+
+Polar Variance:
+\begin{equation}\left[\begin{smallmatrix}V_{rr} & V_{rt}\\V_{rt} & V_{tt}\end{smallmatrix}\right]\end{equation}
+
+Jacobian-rad-to-cart:
+\begin{equation}\left[\begin{smallmatrix}\frac{x}{\left|{r}\right|} & \frac{y}{\left|{r}\right|}\\- \frac{y}{r^{2}} & \frac{x}{r^{2}}\end{smallmatrix}\right]\end{equation}
+
+Cartesian Variance:
+\begin{equation}\left[\begin{smallmatrix}\frac{V_{rr} x^{2}}{r^{2}} + \frac{2 V_{rt}}{r^{2}} x y + \frac{V_{tt} y^{2}}{r^{2}} & - \frac{V_{rr} x y}{r^{2} \left|{r}\right|} + \frac{V_{rt} x^{2}}{r^{2} \left|{r}\right|} - \frac{V_{rt} y^{2}}{r^{2} \left|{r}\right|} + \frac{V_{tt} x y}{r^{2} \left|{r}\right|}\\- \frac{V_{rr} x y}{r^{2} \left|{r}\right|} + \frac{V_{rt} x^{2}}{r^{2} \left|{r}\right|} - \frac{V_{rt} y^{2}}{r^{2} \left|{r}\right|} + \frac{V_{tt} x y}{r^{2} \left|{r}\right|} & \frac{V_{rr} y^{2}}{r^{4}} - \frac{2 V_{rt}}{r^{4}} x y + \frac{V_{tt} x^{2}}{r^{4}}\end{smallmatrix}\right]\end{equation}
+
+
+
+Polar to Cartesian transformation, using multiple points with block matrices.
+
+Input Covariance block matrix:
+\begin{equation}\left[\begin{smallmatrix}V_{r11} & V_{r12} & V_{r1t1} & V_{r1t2}\\V_{r12} & V_{r22} & V_{r2t1} & V_{r2t2}\\V_{t1r1} & V_{t1r2} & V_{t11} & V_{t12}\\V_{t2r1} & V_{t2r2} & V_{t12} & V_{t22}\end{smallmatrix}\right]\end{equation}
+
+Jacobian block matrix:
+\begin{equation}\left[\begin{smallmatrix}\frac{x_{1}}{r_{1}} & 0 & \frac{y_{1}}{r_{1}} & 0\\0 & \frac{x_{2}}{r_{2}} & 0 & \frac{y_{2}}{r_{2}}\\- \frac{y_{1}}{r_{1}^{2}} & 0 & \frac{x_{1}}{r_{1}^{2}} & 0\\0 & - \frac{y_{2}}{r_{2}^{2}} & 0 & \frac{x_{2}
+}{r_{2}^{2}}\end{smallmatrix}\right]\end{equation}
+
+Cartesian Covariance block matrix:
+\begin{equation}\left[\begin{smallmatrix}\frac{V_{r11} x_{1}^{2}}{r_{1}^{2}} + \frac{V_{r1t1} x_{1}}{r_{1}^{2}} y_{1} + \frac{V_{t11} y_{1}^{2}}{r_{1}^{2}} + \frac{V_{t1r1} x_{1}}{r_{1}^{2}} y_{1} & \frac{V_{r12} x_{1} x_{2}}{r_{1} r_{2}} + \frac{V_{r1t2} x_{1} y_{2}}{r_{1} r_{2}} + \frac{V_{t12} y_{1} y_{2}}{r_{1} r_{2}} + \frac{V_{t1r2} x_{2} y_{1}}{r_{1} r_{2}} & - \frac{V_{r11} x_{1}}{r_{1}^{3}} y_{1} + \frac{V_{r1t1} x_{1}^{2}}{r_{1}^{3}} + \frac{V_{t11} x_{1}}{r_{1}^{3}} y_{1} - \frac{V_{t1r1} y_{1}^{2}}{r_{1}^{3}} & - \frac{V_{r12} x_{1} y_{2}}{r_{1} r_{2}^{2}} + \frac{V_{r1t2} x_{1} x_{2}}{r_{1} r_{2}^{2}} + \frac{V_{t12} x_{2} y_{1}}{r_{1} r_{2}^{2}} - \frac{V_{t1r2} y_{1} y_{2}}{r_{1} r_{2}^{2}}\\\frac{V_{r12} x_{1} x_{2}}{r_{1} r_{2}} + \frac{V_{r2t1} x_{2} y_{1}}{r_{1} r_{2}} + \frac{V_{t12} y_{1} y_{2}}{r_{1} r_{2}} + \frac{V_{t2r1} x_{1} y_{2}}{r_{1} r_{2}} & \frac{V_{r22} x_{2}^{2}}{r_{2}^{2}} + \frac{V_{r2t2} x_{2}}{r_{2}^{2}} y_{2} + \frac{V_{t22} y_{2}^{2}}{r_{2}^{2}} + \frac{V_{t2r2} x_{2}}{r_{2}^{2}} y_{2} & - \frac{V_{r12} x_{2} y_{1}}{r_{1}^{2} r_{2}} + \frac{V_{r2t1} x_{1} x_{2}}{r_{1}^{2} r_{2}} + \frac{V_{t12} x_{1} y_{2}}{r_{1}^{2} r_{2}} - \frac{V_{t2r1} y_{1} y_{2}}{r_{1}^{2} r_{2}} & - \frac{V_{r22} x_{2}}{r_{2}^{3}} y_{2} + \frac{V_{r2t2} x_{2}^{2}}{r_{2}^{3}} + \frac{V_{t22} x_{2}}{r_{2}^{3}} y_{2} - \frac{V_{t2r2} y_{2}^{2}}{r_{2}^{3}}\\- \frac{V_{r11} x_{1}}{r_{1}^{3}} y_{1} - \frac{V_{r1t1} y_{1}^{2}}{r_{1}^{3}} + \frac{V_{t11} x_{1}}{r_{1}^{3}} y_{1} + \frac{V_{t1r1} x_{1}^{2}}{r_{1}^{3}} & - \frac{V_{r12} x_{2} y_{1}}{r_{1}^{2} r_{2}} - \frac{V_{r1t2} y_{1} y_{2}}{r_{1}^{2} r_{2}} + \frac{V_{t12} x_{1} y_{2}}{r_{1}^{2} r_{2}} + \frac{V_{t1r2} x_{1} x_{2}}{r_{1}^{2} r_{2}} & \frac{V_{r11} y_{1}^{2}}{r_{1}^{4}} - \frac{V_{r1t1} x_{1}}{r_{1}^{4}} y_{1} + \frac{V_{t11} x_{1}^{2}}{r_{1}^{4}} - \frac{V_{t1r1} x_{1}}{r_{1}^{4}} y_{1} & \frac{V_{r12} y_{1} y_{2}}{r_{1}^{2} r_{2}^{2}} - \frac{V_{r1t2} x_{2} y_{1}}{r_{1}^{2} r_{2}^{2}} + \frac{V_{t12} x_{1} x_{2}}{r_{1}^{2} r_{2}^{2}} - \frac{V_{t1r2} x_{1} y_{2}}{r_{1}^{2} r_{2}^{2}}\\- \frac{V_{r12} x_{1} y_{2}}{r_{1} r_{2}^{2}} - \frac{V_{r2t1} y_{1} y_{2}}{r_{1} r_{2}^{2}} + \frac{V_{t12} x_{2} y_{1}}{r_{1} r_{2}^{2}} + \frac{V_{t2r1} x_{1} x_{2}}{r_{1} r_{2}^{2}} & - \frac{V_{r22} x_{2}}{r_{2}^{3}} y_{2} - \frac{V_{r2t2} y_{2}^{2}}{r_{2}^{3}} + \frac{V_{t22} x_{2}}{r_{2}^{3}} y_{2} + \frac{V_{t2r2} x_{2}^{2}}{r_{2}^{3}} & \frac{V_{r12} y_{1} y_{2}}{r_{1}^{2} r_{2}^{2}} - \frac{V_{r2t1} x_{1} y_{2}}{r_{1}^{2} r_{2}^{2}} + \frac{V_{t12} x_{1} x_{2}}{r_{1}^{2} r_{2}^{2}} - \frac{V_{t2r1} x_{2} y_{1}}{r_{1}^{2} r_{2}^{2}} & \frac{V_{r22} y_{2}^{2}}{r_{2}^{4}} - \frac{V_{r2t2} x_{2}}{r_{2}^{4}} y_{2} + \frac{V_{t22} x_{2}^{2}}{r_{2}^{4}} - \frac{V_{t2r2} x_{2}}{r_{2}^{4}} y_{2}\end{smallmatrix}\right]\end{equation}
+
+
+
+Input values:
+
+a:
+\begin{equation}(- X_{0})\mathbf{\hat{i}_{N}} + (- Y_{0})\mathbf{\hat{j}_{N}}\end{equation}
+
+b:
+\begin{equation}(- X_{0} + x_{i})\mathbf{\hat{i}_{N}} + (- Y_{0} + y_{i})\mathbf{\hat{j}_{N}}\end{equation}
+
+cross:
+\begin{equation}- X_{0} y_{i} + Y_{0} x_{i}\end{equation}
+
+dot:
+\begin{equation}X_{0}^{2} - X_{0} x_{i} + Y_{0}^{2} - Y_{0} y_{i}\end{equation}
+
+km:
+\begin{equation}- \frac{R q}{X_{0}^{2} - 2 X_{0} x_{i} + Y_{0}^{2} - 2 Y_{0} y_{i} + x_{i}^{2} + y_{i}^{2}}\end{equation}
+
+k:
+\begin{equation}- \frac{R q}{\left(X_{0}^{2} + Y_{0}^{2}\right) \left(X_{0}^{2} - 2 X_{0} x_{i} + Y_{0}^{2} - 2 Y_{0} y_{i} + x_{i}^{2} + y_{i}^{2}\right)}\end{equation}
+
+k also as:
+\begin{equation}- \frac{R q}{dot**2+cross**2}\end{equation}
+
+i.e. k:
+\begin{equation}\frac{km}{X_{0}^{2} + Y_{0}^{2}}\end{equation}
+
+s:
+\begin{equation}- R q \operatorname{atan}{\left (\frac{cross}{dot} \right )}\end{equation}
+
+Jacobian [x0, y0, R, xi, yi]:
+\begin{equation}\left[\begin{smallmatrix}k \left(X_{0}^{2} y_{i} - 2 X_{0} Y_{0} x_{i} - Y_{0}^{2} y_{i} + Y_{0} x_{i}^{2} + Y_{0} y_{i}^{2}\right)\\k \left(X_{0}^{2} x_{i} + 2 X_{0} Y_{0} y_{i} - X_{0} x_{i}^{2} - X_{0} y_{i}^{2} - Y_{0}^{2} x_{i}\right)\\- q \operatorname{atan}{\left (\frac{cross}{dot} \right )}\\km \left(Y_{0} - y_{i}\right)\\-km \left(X_{0} - x_{i}\right)\end{smallmatrix}\right]\end{equation}
+
+Note that -(b\_y - a\_y)*dot + (b\_x + a\_x)*cross is:
+\begin{equation}X_{0}^{2} y_{i} - 2 X_{0} Y_{0} x_{i} - Y_{0}^{2} y_{i} + Y_{0} x_{i}^{2} + Y_{0} y_{i}^{2}\end{equation}
+
+Note that (b\_x - a\_x)*dot - (-a\_y - b\_y)*cross is:
+\begin{equation}X_{0}^{2} x_{i} + 2 X_{0} Y_{0} y_{i} - X_{0} x_{i}^{2} - X_{0} y_{i}^{2} - Y_{0}^{2} x_{i}\end{equation}
+
+Note that -a\_y*dot - a\_x*cross is:
+\begin{equation}\left(X_{0}^{2} + Y_{0}^{2}\right) \left(Y_{0} - y_{i}\right)\end{equation}
+
+Note that a\_x*dot-a\_y*cross is:
+\begin{equation}- \left(X_{0} - x_{i}\right) \left(X_{0}^{2} + Y_{0}^{2}\right)\end{equation}
+\end{document}
