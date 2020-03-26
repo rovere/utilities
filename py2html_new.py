@@ -223,6 +223,7 @@ def preamble():
    font-weight: bold;
   }
   li.Path       {font-style:bold;   color: #03C;}
+  li.Task       {font-style:bold;   color: #3465A4;}
   li.sequence   {font-style:bold;   color: #09F;}
   li.task       {font-style:bold;   color: #FF6666;}
   li.EDProducer {font-style:italic; color: #a80000;}
@@ -358,6 +359,19 @@ def main(args):
       out.write('<H2>EndPath %s</H2>\n' % k)
       a.process.endpaths[k].visit(v)
       v.reset()
+
+  out.write( '</ol><h1>End Paths</h1>\n')
+  v.reset()
+
+  out.write( '<h1>Tasks</h1><ol>\n')
+  for k in a.process.tasks.keys():
+      out.write('<li class="Task">Task %s</li>\n<ol>' % k)
+      a.process.tasks[k].visit(v)
+      v.reset()
+      out.write('</ol>')
+  out.write( '</ol><h1>End Tasks</h1>\n')
+  v.reset()
+
 
   out.write( '<h1>ES Producers</h1>\n')
   for k in a.process.es_producers_().keys():
