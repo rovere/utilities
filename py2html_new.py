@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Original Author:  Marco Rovere
 #         Created:  Tue Feb 9 10:06:02 CEST 2010
+#         Last Updated: Thu Mar 26 16:04:30 CET 2020
 
 import re
 import sys, os
@@ -30,7 +31,8 @@ class Visitor:
 
     def enter(self, value):
         if type(value) == cms.Sequence:
-            if (value.hasLabel_()):
+            # Few modules define 'label' as a property, hiding the callable label() method...
+            if (value.hasLabel_() and callable(value.label_)):
                 self.out.write('<ol><li class=sequence>Sequence %s</li>\n<ol>' % value.label_())
             else:
                 self.out.write('<ol><li class=sequence>Sequence %s</li>\n<ol>' % '--w/o label found--')
@@ -39,7 +41,7 @@ class Visitor:
         elif 'Task' in dir(cms) and type(value) == cms.Task:
             ## check for older versions where Task was not defined
             if type(value) == cms.Task:
-                if (value.hasLabel_()):
+                if (value.hasLabel_() and callable(value.label_)):
                     self.out.write('<ol><li class=task>Task %s</li>\n<ol>' % value.label_())
                 else:
                     self.out.write('<ol><li class=task>Task %s</li>\n<ol>' % '--w/o label found--')
@@ -60,7 +62,7 @@ class Visitor:
     def write_output(self, value, task=False):
         if task == True:
             if type(value) == cms.Sequence or type(value) == cms.Task:
-                if value.hasLabel_():
+                if value.hasLabel_() and callable(value.label_):
                     self.out.write('<span style="color:#000000">(%s, %s, %s, %s, %s) %f [%f] - %s </span>' % (prettyInt(self.t[0]),\
                         prettyInt(self.t[1]),\
                         prettyInt(self.t[2]),\
@@ -89,7 +91,7 @@ class Visitor:
                 self.out.write( '</li>\n')
         else:
             if type(value) == cms.Sequence:
-                if value.hasLabel_():
+                if value.hasLabel_() and callable(value.label_):
                     self.out.write('<span style="color:#000000">(%s, %s, %s, %s, %s) %f [%f] - %s </span>' % (prettyInt(self.t[0]),\
                         prettyInt(self.t[1]),\
                         prettyInt(self.t[2]),\
@@ -137,7 +139,7 @@ class Visitor:
         except:
           label_ += "%d" % numLabel
           numLabel += 1
-        dumpConfig_ = getattr(value, 'dumpConfig', self.fake)
+        dumpConfig_ = getattr(value, 'dumpPython', self.fake)
         link = ''
         counter = 0
         t = {}
@@ -163,13 +165,17 @@ class Visitor:
                                                                                  prettyInt(t[3]), \
                                                                                  prettyInt(t[4]), \
                                                                                  prettyFloat((t[0]+t[1]+t[2]+t[3]+t[4])/1024./1024.))
-        link = '<a href=http://cmssdt.cern.ch/SDT/lxr/ident?_i=' + type_() + '&_remember=1>' + type_() + '</a> ' + stats + '\n'
+        link = '<a href=https://cmssdt.cern.ch/dxr/CMSSW/search?q={}&redirect=false&case=false&limit=77&offset=>{}</a>{}\n'.format(type_(), type_(), stats)
         self.out.write(link + ', label <a href=' + label_ + '.html>' + label_ +'</a>, defined in ' + filename_ + '</li>\n')
         tmpout = open(os.path.join(self.prefix_, 'html/', label_ + '.html'), 'w')
         tmpout.write(preamble())
         tmpout.write( '<pre>\n')
-        gg = dumpConfig_()
-        self.printAndExpandRefs(gg.split('\n'), tmpout, '')
+        try:
+            gg = dumpConfig_()
+            self.printAndExpandRefs(gg.split('\n'), tmpout, '')
+        except:
+            print("Something Failed with {}".format(label_))
+            pass
         tmpout.write( '<pre>\n')
         tmpout.write(endDocument())
         tmpout.close()
@@ -244,7 +250,7 @@ def dumpESProducer(value, out, steps, prefix, conn=None):
     type_ = getattr(value, 'type_', 'Not Available')
     filename_ = getattr(value, '_filename', 'Not Available')
     lbl_ = getattr(value, 'label_', 'Not Available')
-    dumpConfig_ = getattr(value, 'dumpConfig', 'Not Available')
+    dumpConfig_ = getattr(value, 'dumpPython', 'Not Available')
     link = ''
     counter = 0
     t = {}
@@ -270,7 +276,7 @@ def dumpESProducer(value, out, steps, prefix, conn=None):
                                          prettyInt(t[3]), \
                                          prettyInt(t[4]), \
                                          prettyFloat((t[0]+t[1]+t[2]+t[3]+t[4])/1024./1024.))
-    link = '<a href=http://cmssdt.cern.ch/SDT/lxr/ident?_i=' + type_() + '&_remember=1>' + type_() + '</a> ' + stats + '\n'
+    link = '<a href=https://cmssdt.cern.ch/dxr/CMSSW/search?q={}&redirect=false&case=false&limit=77&offset=>{}</a>{}\n'.format(type_(), type_(), stats)
     out.write('<ol><li>'+link + ', label <a href=' + lbl_() + '.html>' + lbl_() +'</a>, defined in ' + filename_ + '</li></ol>\n')
     tmpout = open(os.path.join(prefix, 'html', lbl_() + '.html'), 'w')
     tmpout.write(preamble())
