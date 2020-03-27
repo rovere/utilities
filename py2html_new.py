@@ -7,6 +7,7 @@ import re
 import sys, os
 import sqlite3
 import FWCore.ParameterSet.Config as cms
+import FWCore.ParameterSet
 import locale
 import argparse
 
@@ -129,6 +130,12 @@ class Visitor:
         return 'Not_Available'
 
     def dumpProducerOrFilter(self, value):
+        # That's as horrible as I could think of. In the case of TaskPlaceholders
+        # I noticed that the real object to be dumped it the process._name registered
+        # in the TaskPlaceholder itself.
+        if isinstance(value, FWCore.ParameterSet.SequenceTypes.TaskPlaceholder):
+            value = getattr(self.process_, value._name)
+
         global numLabel
         type_ = getattr(value, 'type_', self.fake)
         filename_ = getattr(value, '_filename', self.fake())
@@ -170,12 +177,10 @@ class Visitor:
         tmpout = open(os.path.join(self.prefix_, 'html/', label_ + '.html'), 'w')
         tmpout.write(preamble())
         tmpout.write( '<pre>\n')
-        try:
-            gg = dumpConfig_()
-            self.printAndExpandRefs(gg.split('\n'), tmpout, '')
-        except:
-            print("Something Failed with {}".format(label_))
-            pass
+        lines = []
+        gg = dumpConfig_()
+        lines = gg.split('\n')
+        self.printAndExpandRefs(lines, tmpout, '')
         tmpout.write( '<pre>\n')
         tmpout.write(endDocument())
         tmpout.close()
@@ -318,6 +323,7 @@ def main(args):
   sys.path.append(pwd)
   checkRel()
 
+  cmsProcess = None
   try:
       a = __import__(str(re.sub('\.py', '', args.input_cfg)))
   except:
@@ -330,6 +336,7 @@ def main(args):
 
   try:
       print a.process.process
+      cmsProcess = a.process
   except:
       print 'No process defined in the supplied configuration file: creating a DUMMY one'
       cmsswBase = os.getenv('CMSSW_BASE')
@@ -345,28 +352,28 @@ def main(args):
 
   out.write(preamble())
   out.write( '<h1>Paths</h1><ol>\n')
-  v = Visitor(out, a.process, steps, args.output, conn)
-  for k in a.process.paths.keys():
+  v = Visitor(out, cmsProcess, steps, args.output, conn)
+  for k in cmsProcess.paths.keys():
       out.write('<li class="Path">Path %s</li>\n<ol>' % k)
-      a.process.paths[k].visit(v)
+      cmsProcess.paths[k].visit(v)
       v.reset()
       out.write('</ol>')
 
   out.write( '</ol><h1>End Paths</h1>\n')
   v.reset()
 
-  for k in a.process.endpaths.keys():
+  for k in cmsProcess.endpaths.keys():
       out.write('<H2>EndPath %s</H2>\n' % k)
-      a.process.endpaths[k].visit(v)
+      cmsProcess.endpaths[k].visit(v)
       v.reset()
 
   out.write( '</ol><h1>End Paths</h1>\n')
   v.reset()
 
   out.write( '<h1>Tasks</h1><ol>\n')
-  for k in a.process.tasks.keys():
+  for k in cmsProcess.tasks.keys():
       out.write('<li class="Task">Task %s</li>\n<ol>' % k)
-      a.process.tasks[k].visit(v)
+      cmsProcess.tasks[k].visit(v)
       v.reset()
       out.write('</ol>')
   out.write( '</ol><h1>End Tasks</h1>\n')
@@ -374,9 +381,9 @@ def main(args):
 
 
   out.write( '<h1>ES Producers</h1>\n')
-  for k in a.process.es_producers_().keys():
+  for k in cmsProcess.es_producers_().keys():
       out.write('<H2>ESProducer %s</H2>\n' % k)
-      dumpESProducer(a.process.es_producers[k], out, steps, args.output, conn)
+      dumpESProducer(cmsProcess.es_producers[k], out, steps, args.output, conn)
 
   out.write(endDocument())
 
