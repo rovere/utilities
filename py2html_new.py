@@ -55,6 +55,8 @@ class Visitor:
                 self.out.write( '<li class="EDProducer">EDProducer ' )
             elif type(value) == cms.EDFilter:
                 self.out.write( '<li class="EDFilter">EDFilter ' )
+            elif type(value).__base__ == cms.SwitchProducer:
+                self.out.write( '<li class="SwitchProducer">SwitchProducer ' )
             mem = self.dumpProducerOrFilter(value)
             for i in range(len(mem)):
                 self.t[i] += int(mem[i])
@@ -234,6 +236,7 @@ def preamble():
   li.EDProducer {font-style:italic; color: #a80000;}
   li.EDFilter   {font-style:italic; color: #F90;}
   li.EDAnalyzer {font-style:italic; color: #360;}
+  li.SwitchProducer {font-style:italic; color: #4e9a06;}
 </style>
  </head>
 
